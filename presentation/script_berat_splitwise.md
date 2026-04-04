@@ -63,6 +63,12 @@ Both papers independently came to the same conclusion: just put them on separate
 
 ---
 
+## SLIDE: Interference Figure (15 sec)
+
+And this is the actual data from DistServe. On the left with short inputs, one prefill job almost triples decode latency. On the right with longer inputs at 1024 tokens, it gets even worse. The dotted line is decode-only, the solid line is with one prefill mixed in. That gap is why colocation is the problem.
+
+---
+
 ## SLIDE: Production Trace Insights (1.5 min)
 
 So what makes Splitwise different from DistServe is that the authors had access to real production data. They pulled traces from two Azure LLM services at Microsoft, a coding assistant and a conversation service.
@@ -72,6 +78,12 @@ And they found some really interesting things. First, these workloads look total
 Second, and this was surprising to me, with mixed continuous batching, the machines spend 60 to 70 percent of their time running 20 tokens or fewer in the batch. That's the GPU sitting mostly idle during token generation.
 
 Third, even for the coding workload where you have these huge prompts and tiny outputs, most of the wall-clock time is still spent on token generation. A prompt with 1500 tokens on BLOOM-176B takes about the same time as generating just 6 output tokens. Token generation dominates the end-to-end time.
+
+---
+
+## SLIDE: Trace Distribution Figure (15 sec)
+
+Here are the actual distributions. Left panel is input tokens, right is output tokens. You can see how different these two services look. Coding has massive prompts but tiny outputs. Conversation is more spread out on both sides. These shapes are what drove the Splitwise design.
 
 ---
 
@@ -99,6 +111,12 @@ The nice thing about the mixed pool is that it absorbs traffic spikes. If prompt
 
 ---
 
+## SLIDE: Architecture Figure (10 sec)
+
+This is the diagram from the paper. You can see the cluster-level scheduler at top routing requests, the prompt pool on the left, token pool on the right, InfiniBand connecting them for KV-cache transfer, and the mixed pool that can flex between both.
+
+---
+
 ## SLIDE: KV-Cache Transfer (1 min)
 
 The obvious question with disaggregation is: doesn't transferring the KV-cache between machines add a ton of overhead?
@@ -118,6 +136,12 @@ Splitwise evaluates four cluster configurations. All A100s, all H100s, H100s for
 The results: Splitwise-AA, which is the all-A100 configuration, gets 2.15x more throughput than a baseline A100 cluster. The paper's headline numbers are up to 1.4x throughput at 20% lower cost, or up to 2.35x throughput at the same cost and power. For power optimization, HHcap matches baseline throughput at 25% less power.
 
 And it's robust. Running the wrong workload on a cluster only costs you about 7% throughput. The mixed pool absorbs the mismatch.
+
+---
+
+## SLIDE: Results Figure (15 sec)
+
+These plots show the latency metrics at different request rates for all four cluster configurations. The dashed red lines are the SLO targets. Notice how the Splitwise designs stay below those lines at much higher request rates than the baselines. That's the throughput advantage playing out in practice.
 
 ---
 

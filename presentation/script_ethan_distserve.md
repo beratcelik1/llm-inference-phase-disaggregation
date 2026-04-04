@@ -42,6 +42,12 @@ The point is that after disaggregation, you have separate knobs for each phase. 
 
 ---
 
+## SLIDE: DistServe Architecture Figure (10 sec)
+
+Here's the system diagram. Requests come into the controller at top, get dispatched to prefill instances on the left, and then the KV-cache gets pulled by decode instances on the right. Each instance has its own set of GPUs managed by a parallel runtime.
+
+---
+
 ## SLIDE: System Architecture (40 sec)
 
 Here's how the system is structured. Requests come in to a central controller. It sends each request to whichever prefill instance has the shortest queue. After prefill finishes, the KV-cache gets pulled by the least loaded decode instance, and generation begins.
@@ -86,6 +92,18 @@ Summarization on LongBench is the most dramatic result: 4.3x higher rate and 12.
 
 ---
 
+## SLIDE: Chatbot Results Figure (15 sec)
+
+Here's the chatbot evaluation across all three model sizes. Top row: SLO attainment drops as request rate increases. DistServe in blue stays high much longer than vLLM or DeepSpeed-MII. Bottom row: when you tighten the SLOs, DistServe still maintains good attainment while the baselines fall apart.
+
+---
+
+## SLIDE: Code and Summarization Figure (15 sec)
+
+Same story for code completion and summarization. Code completion shows a big gap because it needs really fast TTFT and disaggregation eliminates the prefill interference. Summarization is even more dramatic because the long inputs cause severe interference when colocated.
+
+---
+
 ## SLIDE: Ablation and Latency (1 min)
 
 Two findings I want to highlight.
@@ -95,6 +113,12 @@ First, KV-cache transfer cost. Even on OPT-175B, the biggest model they tested, 
 Second, the ablation. They took vLLM and gave it an exhaustive parallelism search, called vLLM++. Same performance as vanilla vLLM. Why? Because when the phases are colocated, interference cancels out whatever gains you get from better parallelism. You have to disaggregate first before parallelism optimization even matters.
 
 And check out the actual configs DistServe chose. For OPT-66B, prefill gets tensor parallel 4 with no pipelining, decoding gets tensor parallel 2 with pipeline parallel 2. Totally different strategies. That's only possible when they're on separate instances.
+
+---
+
+## SLIDE: Latency Breakdown Figure (15 sec)
+
+This figure really drives the point home. The bar chart on the left shows the latency breakdown: transmission is that tiny red sliver, less than 0.1% of total time. On the right, the CDF shows 95% of requests see under 30 milliseconds of transfer delay. The concern about splitting phases across machines adding overhead just doesn't hold up.
 
 ---
 

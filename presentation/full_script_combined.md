@@ -71,6 +71,12 @@ Both papers independently came to the same conclusion: just put them on separate
 
 ---
 
+## SLIDE: Interference Figure (15 sec)
+
+And this is the actual data from DistServe. On the left with short inputs, one prefill job almost triples decode latency. On the right with longer inputs at 1024 tokens, it gets even worse. The dotted line is decode-only, the solid line is with one prefill mixed in. That gap is why colocation is the problem.
+
+---
+
 ## SLIDE: Production Trace Insights (1.5 min)
 
 So what makes Splitwise different from DistServe is that the authors had access to real production data. They pulled traces from two Azure LLM services at Microsoft, a coding assistant and a conversation service.
@@ -80,6 +86,12 @@ And they found some really interesting things. First, these workloads look total
 Second, and this was surprising to me, with mixed continuous batching, the machines spend 60 to 70 percent of their time running 20 tokens or fewer in the batch. That's the GPU sitting mostly idle during token generation.
 
 Third, even for the coding workload where you have these huge prompts and tiny outputs, most of the wall-clock time is still spent on token generation. A prompt with 1500 tokens on BLOOM-176B takes about the same time as generating just 6 output tokens. Token generation dominates the end-to-end time.
+
+---
+
+## SLIDE: Trace Distribution Figure (15 sec)
+
+Here are the actual distributions. Left panel is input tokens, right is output tokens. You can see how different these two services look. Coding has massive prompts but tiny outputs. Conversation is more spread out on both sides. These shapes are what drove the Splitwise design.
 
 ---
 
@@ -107,6 +119,12 @@ The nice thing about the mixed pool is that it absorbs traffic spikes. If prompt
 
 ---
 
+## SLIDE: Architecture Figure (10 sec)
+
+This is the diagram from the paper. You can see the cluster-level scheduler at top routing requests, the prompt pool on the left, token pool on the right, InfiniBand connecting them for KV-cache transfer, and the mixed pool that can flex between both.
+
+---
+
 ## SLIDE: KV-Cache Transfer (1 min)
 
 The obvious question with disaggregation is: doesn't transferring the KV-cache between machines add a ton of overhead?
@@ -126,6 +144,12 @@ Splitwise evaluates four cluster configurations. All A100s, all H100s, H100s for
 The results: Splitwise-AA, which is the all-A100 configuration, gets 2.15x more throughput than a baseline A100 cluster. The paper's headline numbers are up to 1.4x throughput at 20% lower cost, or up to 2.35x throughput at the same cost and power. For power optimization, HHcap matches baseline throughput at 25% less power.
 
 And it's robust. Running the wrong workload on a cluster only costs you about 7% throughput. The mixed pool absorbs the mismatch.
+
+---
+
+## SLIDE: Results Figure (15 sec)
+
+These plots show the latency metrics at different request rates for all four cluster configurations. The dashed red lines are the SLO targets. Notice how the Splitwise designs stay below those lines at much higher request rates than the baselines. That's the throughput advantage playing out in practice.
 
 ---
 
@@ -189,6 +213,12 @@ The point is that after disaggregation, you have separate knobs for each phase. 
 
 ---
 
+## SLIDE: DistServe Architecture Figure (10 sec)
+
+Here's the system diagram. Requests come into the controller at top, get dispatched to prefill instances on the left, and then the KV-cache gets pulled by decode instances on the right. Each instance has its own set of GPUs managed by a parallel runtime.
+
+---
+
 ## SLIDE: System Architecture (40 sec)
 
 Here's how the system is structured. Requests come in to a central controller. It sends each request to whichever prefill instance has the shortest queue. After prefill finishes, the KV-cache gets pulled by the least loaded decode instance, and generation begins.
@@ -233,6 +263,18 @@ Summarization on LongBench is the most dramatic result: 4.3x higher rate and 12.
 
 ---
 
+## SLIDE: Chatbot Results Figure (15 sec)
+
+Here's the chatbot evaluation across all three model sizes. Top row: SLO attainment drops as request rate increases. DistServe in blue stays high much longer than vLLM or DeepSpeed-MII. Bottom row: when you tighten the SLOs, DistServe still maintains good attainment while the baselines fall apart.
+
+---
+
+## SLIDE: Code and Summarization Figure (15 sec)
+
+Same story for code completion and summarization. Code completion shows a big gap because it needs really fast TTFT and disaggregation eliminates the prefill interference. Summarization is even more dramatic because the long inputs cause severe interference when colocated.
+
+---
+
 ## SLIDE: Ablation and Latency (1 min)
 
 Two findings I want to highlight.
@@ -242,6 +284,12 @@ First, KV-cache transfer cost. Even on OPT-175B, the biggest model they tested, 
 Second, the ablation. They took vLLM and gave it an exhaustive parallelism search, called vLLM++. Same performance as vanilla vLLM. Why? Because when the phases are colocated, interference cancels out whatever gains you get from better parallelism. You have to disaggregate first before parallelism optimization even matters.
 
 And check out the actual configs DistServe chose. For OPT-66B, prefill gets tensor parallel 4 with no pipelining, decoding gets tensor parallel 2 with pipeline parallel 2. Totally different strategies. That's only possible when they're on separate instances.
+
+---
+
+## SLIDE: Latency Breakdown Figure (15 sec)
+
+This figure really drives the point home. The bar chart on the left shows the latency breakdown: transmission is that tiny red sliver, less than 0.1% of total time. On the right, the CDF shows 95% of requests see under 30 milliseconds of transfer delay. The concern about splitting phases across machines adding overhead just doesn't hold up.
 
 ---
 
