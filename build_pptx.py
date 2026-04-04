@@ -1,1539 +1,952 @@
-"""Build the presentation PPTX from structured slide data."""
+"""Clean minimalist PPTX presentation."""
 
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
-from pptx.enum.shapes import MSO_SHAPE
 
 prs = Presentation()
 prs.slide_width = Inches(13.333)
 prs.slide_height = Inches(7.5)
 
-# Color palette
-DARK_BG = RGBColor(0x1A, 0x1A, 0x2E)
-ACCENT_TEAL = RGBColor(0x00, 0xD2, 0xD3)
-ACCENT_ORANGE = RGBColor(0xFF, 0x9F, 0x43)
-ACCENT_GREEN = RGBColor(0x10, 0xAC, 0x84)
-ACCENT_RED = RGBColor(0xEE, 0x55, 0x55)
+# Minimal palette
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-LIGHT_GRAY = RGBColor(0xCC, 0xCC, 0xCC)
-MED_GRAY = RGBColor(0x99, 0x99, 0x99)
-DARK_TEXT = RGBColor(0x2D, 0x3A, 0x4A)
-LIGHT_BG = RGBColor(0xF5, 0xF6, 0xFA)
-SECTION_BG = RGBColor(0x0A, 0x3D, 0x62)
+OFF_WHITE = RGBColor(0xF8, 0xF9, 0xFA)
+BLACK = RGBColor(0x1A, 0x1A, 0x1A)
+DARK = RGBColor(0x33, 0x33, 0x33)
+GRAY = RGBColor(0x66, 0x66, 0x66)
+LIGHT_GRAY = RGBColor(0xAA, 0xAA, 0xAA)
+BORDER_GRAY = RGBColor(0xDD, 0xDD, 0xDD)
+BLUE = RGBColor(0x1A, 0x56, 0xDB)  # primary accent
+NAVY = RGBColor(0x0F, 0x17, 0x2A)  # dark slides
+RED_ACCENT = RGBColor(0xC0, 0x39, 0x2B)  # warnings/problems
+GREEN = RGBColor(0x1E, 0x8A, 0x4C)  # positive results
+TEAL = RGBColor(0x0E, 0x6E, 0x6E)  # secondary
 
 
-def add_bg(slide, color):
-    bg = slide.background
-    fill = bg.fill
-    fill.solid()
-    fill.fore_color.rgb = color
+def bg(slide, color):
+    slide.background.fill.solid()
+    slide.background.fill.fore_color.rgb = color
 
 
-def add_shape_bg(slide, x, y, w, h, color, alpha=None):
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, y, w, h)
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = color
-    shape.line.fill.background()
-    return shape
+def rect(slide, x, y, w, h, color):
+    from pptx.enum.shapes import MSO_SHAPE
+
+    s = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, y, w, h)
+    s.fill.solid()
+    s.fill.fore_color.rgb = color
+    s.line.fill.background()
+    return s
 
 
-def add_text_box(slide, left, top, width, height):
-    return slide.shapes.add_textbox(left, top, width, height)
+def box(slide, x, y, w, h):
+    return slide.shapes.add_textbox(x, y, w, h)
 
 
-def set_text(
-    tf,
-    text,
-    size=18,
-    bold=False,
-    color=WHITE,
-    alignment=PP_ALIGN.LEFT,
-    font_name="Calibri",
-):
+def txt(tf, text, sz=18, bold=False, color=DARK, align=PP_ALIGN.LEFT):
     tf.word_wrap = True
     p = tf.paragraphs[0]
     p.text = text
-    p.font.size = Pt(size)
+    p.font.size = Pt(sz)
     p.font.bold = bold
     p.font.color.rgb = color
-    p.font.name = font_name
-    p.alignment = alignment
+    p.font.name = "Calibri"
+    p.alignment = align
     return p
 
 
-def add_para(
-    tf,
-    text,
-    size=18,
-    bold=False,
-    color=WHITE,
-    alignment=PP_ALIGN.LEFT,
-    space_before=Pt(6),
-    font_name="Calibri",
-):
+def para(tf, text, sz=18, bold=False, color=DARK, align=PP_ALIGN.LEFT, sp=Pt(6)):
     p = tf.add_paragraph()
     p.text = text
-    p.font.size = Pt(size)
+    p.font.size = Pt(sz)
     p.font.bold = bold
     p.font.color.rgb = color
-    p.font.name = font_name
-    p.alignment = alignment
-    p.space_before = space_before
+    p.font.name = "Calibri"
+    p.alignment = align
+    p.space_before = sp
     return p
 
 
-def add_bullet(tf, text, size=16, color=WHITE, level=0, bold=False):
+def bullet(tf, text, sz=16, color=DARK, level=0, bold=False, sp=Pt(6)):
     p = tf.add_paragraph()
     p.text = text
-    p.font.size = Pt(size)
+    p.font.size = Pt(sz)
     p.font.color.rgb = color
     p.font.bold = bold
     p.font.name = "Calibri"
     p.level = level
-    p.space_before = Pt(4)
+    p.space_before = sp
     return p
 
 
-def make_table(slide, rows, cols, left, top, width, height):
-    table_shape = slide.shapes.add_table(rows, cols, left, top, width, height)
-    table = table_shape.table
-    return table
+def tbl(slide, rows, cols, x, y, w, h):
+    return slide.shapes.add_table(rows, cols, x, y, w, h).table
 
 
-def style_table_cell(cell, text, size=14, bold=False, color=WHITE, bg_color=None):
-    cell.text = ""
-    p = cell.text_frame.paragraphs[0]
+def cell(table, r, c, text, sz=14, bold=False, color=DARK, fill=None):
+    cl = table.cell(r, c)
+    cl.text = ""
+    p = cl.text_frame.paragraphs[0]
     p.text = text
-    p.font.size = Pt(size)
+    p.font.size = Pt(sz)
     p.font.bold = bold
     p.font.color.rgb = color
     p.font.name = "Calibri"
-    if bg_color:
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = bg_color
+    if fill:
+        cl.fill.solid()
+        cl.fill.fore_color.rgb = fill
 
 
-# =============================================
-# SLIDE 1: Title
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
+L = Inches(1.2)  # left margin
+T_TITLE = Inches(0.5)
+T_BODY = Inches(1.6)
+W = Inches(11)
 
-# Accent line
-add_shape_bg(slide, Inches(0), Inches(2.8), Inches(13.333), Pt(4), ACCENT_TEAL)
+# ====== SLIDE 1: TITLE ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, NAVY)
+rect(s, Inches(0), Inches(3.4), Inches(13.333), Pt(2), BLUE)
 
-tb = add_text_box(slide, Inches(1), Inches(1.2), Inches(11.333), Inches(1.5))
-set_text(
+tb = box(s, L, Inches(1.8), W, Inches(1.2))
+txt(
     tb.text_frame,
-    "Phase Disaggregation for",
-    size=44,
+    "Phase Disaggregation for LLM Inference",
+    sz=42,
     bold=True,
     color=WHITE,
-    alignment=PP_ALIGN.CENTER,
+    align=PP_ALIGN.LEFT,
 )
-add_para(
+
+tb = box(s, L, Inches(3.7), W, Inches(0.6))
+txt(
     tb.text_frame,
-    "LLM Inference",
-    size=44,
-    bold=True,
-    color=ACCENT_TEAL,
-    alignment=PP_ALIGN.CENTER,
+    "Splitwise  &  DistServe",
+    sz=26,
+    color=RGBColor(0x88, 0xAA, 0xDD),
+    align=PP_ALIGN.LEFT,
 )
 
-tb2 = add_text_box(slide, Inches(1), Inches(3.3), Inches(11.333), Inches(0.8))
-set_text(
-    tb2.text_frame,
-    "Splitwise  |  DistServe",
-    size=28,
-    color=ACCENT_ORANGE,
-    alignment=PP_ALIGN.CENTER,
-)
-
-tb3 = add_text_box(slide, Inches(1), Inches(4.5), Inches(11.333), Inches(1.5))
-set_text(
-    tb3.text_frame,
+tb = box(s, L, Inches(5.0), W, Inches(1.2))
+txt(
+    tb.text_frame,
     "ECE 5545: Machine Learning Hardware & Systems",
-    size=20,
+    sz=18,
     color=LIGHT_GRAY,
-    alignment=PP_ALIGN.CENTER,
 )
-add_para(
-    tb3.text_frame,
+para(
+    tb.text_frame,
     "Berat Celik  &  Jiayang (Ethan) Chen",
-    size=22,
+    sz=20,
     bold=True,
     color=WHITE,
-    alignment=PP_ALIGN.CENTER,
-    space_before=Pt(12),
+    sp=Pt(12),
 )
-add_para(
-    tb3.text_frame,
-    "Spring 2026",
-    size=18,
-    color=MED_GRAY,
-    alignment=PP_ALIGN.CENTER,
-    space_before=Pt(8),
-)
+para(tb.text_frame, "Spring 2026", sz=16, color=LIGHT_GRAY, sp=Pt(8))
 
+# ====== SLIDE 2: OUTLINE ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
-# =============================================
-# SLIDE 2: Outline
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Outline", sz=34, bold=True, color=BLACK)
 
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(tb.text_frame, "Presentation Outline", size=36, bold=True, color=WHITE)
+# Part 1
+tb = box(s, L, Inches(1.8), Inches(5.2), Inches(4))
+txt(tb.text_frame, "Part 1: Berat", sz=22, bold=True, color=BLUE)
+bullet(tb.text_frame, "LLM inference background", sz=17, color=DARK, sp=Pt(14))
+bullet(tb.text_frame, "The two phases and why they differ", sz=17, color=DARK)
+bullet(tb.text_frame, "The colocation problem", sz=17, color=DARK)
+bullet(tb.text_frame, "Splitwise: production insights", sz=17, color=DARK)
+bullet(tb.text_frame, "Architecture and KV-cache transfer", sz=17, color=DARK)
+bullet(tb.text_frame, "Heterogeneous cluster designs", sz=17, color=DARK)
+bullet(tb.text_frame, "Evaluation", sz=17, color=DARK)
 
-# Part 1 box
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.6),
-    Inches(5.6),
-    Inches(4.8),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(1.1), Inches(1.8), Inches(5), Inches(4.4))
-set_text(tb.text_frame, "Part 1 — Berat Celik", size=24, bold=True, color=ACCENT_TEAL)
-add_bullet(
-    tb.text_frame, "Background: LLM Inference & Two Phases", size=18, color=WHITE
-)
-add_bullet(tb.text_frame, "The Problem: Why Colocation Fails", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Splitwise: Production Trace Insights", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Splitwise: Architecture & Design", size=18, color=WHITE)
-add_bullet(tb.text_frame, "KV-Cache Transfer Optimization", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Heterogeneous Cluster Designs", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Evaluation & Results", size=18, color=WHITE)
+# Part 2
+tb = box(s, Inches(7), Inches(1.8), Inches(5.2), Inches(4))
+txt(tb.text_frame, "Part 2: Ethan", sz=22, bold=True, color=TEAL)
+bullet(tb.text_frame, "DistServe: goodput optimization", sz=17, color=DARK, sp=Pt(14))
+bullet(tb.text_frame, "Formal tradeoff analysis", sz=17, color=DARK)
+bullet(tb.text_frame, "Placement algorithms", sz=17, color=DARK)
+bullet(tb.text_frame, "Online scheduling", sz=17, color=DARK)
+bullet(tb.text_frame, "Evaluation", sz=17, color=DARK)
+bullet(tb.text_frame, "Comparison and future directions", sz=17, color=DARK)
 
-# Part 2 box
-add_shape_bg(
-    slide,
-    Inches(6.9),
-    Inches(1.6),
-    Inches(5.6),
-    Inches(4.8),
-    RGBColor(0x3D, 0x0A, 0x2E),
-)
-tb = add_text_box(slide, Inches(7.2), Inches(1.8), Inches(5), Inches(4.4))
-set_text(tb.text_frame, "Part 2 — Ethan Chen", size=24, bold=True, color=ACCENT_ORANGE)
-add_bullet(tb.text_frame, "DistServe: Goodput Optimization", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Tradeoff Analysis", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Placement Algorithms", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Online Scheduling", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Evaluation & Results", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Comparison & Discussion", size=18, color=WHITE)
-add_bullet(tb.text_frame, "Future Directions", size=18, color=WHITE)
+# ====== SLIDE 3: HOW LLM INFERENCE WORKS ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "How LLM Inference Works", sz=34, bold=True, color=BLACK)
 
-# =============================================
-# SLIDE 3: How LLM Inference Works
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
+# Phase 1
+rect(s, L, Inches(1.7), Inches(5.2), Inches(2.8), OFF_WHITE)
+tb = box(s, Inches(1.5), Inches(1.8), Inches(4.6), Inches(2.6))
+txt(tb.text_frame, "Phase 1: Prefill", sz=22, bold=True, color=BLUE)
+bullet(
     tb.text_frame,
-    "Background: How LLM Inference Works",
-    size=36,
-    bold=True,
-    color=WHITE,
+    "Processes all input tokens in parallel",
+    sz=16,
+    color=DARK,
+    sp=Pt(10),
 )
+bullet(tb.text_frame, "One forward pass through the model", sz=16, color=DARK)
+bullet(tb.text_frame, "Produces the first output token", sz=16, color=DARK)
+bullet(tb.text_frame, "Generates the KV-cache (stored context)", sz=16, color=DARK)
+bullet(tb.text_frame, "Compute-bound", sz=16, color=BLUE, bold=True)
 
-# Phase 1 box
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(2.5),
-    RGBColor(0x15, 0x50, 0x70),
-)
-tb = add_text_box(slide, Inches(1.1), Inches(1.6), Inches(5), Inches(2.3))
-set_text(
-    tb.text_frame,
-    "Phase 1: Prefill (Prompt Computation)",
-    size=22,
-    bold=True,
-    color=ACCENT_TEAL,
-)
-add_bullet(tb.text_frame, "Process ALL input tokens in parallel", size=16, color=WHITE)
-add_bullet(
-    tb.text_frame, "Single forward pass → first output token", size=16, color=WHITE
-)
-add_bullet(
-    tb.text_frame, "Generates KV-cache for all input tokens", size=16, color=WHITE
-)
-add_bullet(
-    tb.text_frame,
-    "Compute-bound: high arithmetic intensity",
-    size=16,
-    color=ACCENT_GREEN,
-)
-
-# Phase 2 box
-add_shape_bg(
-    slide,
-    Inches(6.9),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(2.5),
-    RGBColor(0x50, 0x15, 0x40),
-)
-tb = add_text_box(slide, Inches(7.2), Inches(1.6), Inches(5), Inches(2.3))
-set_text(
-    tb.text_frame,
-    "Phase 2: Decoding (Token Generation)",
-    size=22,
-    bold=True,
-    color=ACCENT_ORANGE,
-)
-add_bullet(tb.text_frame, "Generate tokens ONE at a time", size=16, color=WHITE)
-add_bullet(
-    tb.text_frame,
-    "Each step attends to all prior tokens via KV-cache",
-    size=16,
-    color=WHITE,
-)
-add_bullet(tb.text_frame, "Repeat until end-of-sequence", size=16, color=WHITE)
-add_bullet(
-    tb.text_frame,
-    "Memory-bandwidth-bound: low arithmetic intensity",
-    size=16,
-    color=ACCENT_RED,
-)
+# Phase 2
+rect(s, Inches(6.9), Inches(1.7), Inches(5.2), Inches(2.8), OFF_WHITE)
+tb = box(s, Inches(7.2), Inches(1.8), Inches(4.6), Inches(2.6))
+txt(tb.text_frame, "Phase 2: Decoding", sz=22, bold=True, color=TEAL)
+bullet(tb.text_frame, "Generates tokens one at a time", sz=16, color=DARK, sp=Pt(10))
+bullet(tb.text_frame, "Each step reads the full KV-cache", sz=16, color=DARK)
+bullet(tb.text_frame, "Repeats until end of sequence", sz=16, color=DARK)
+bullet(tb.text_frame, "Sequential, autoregressive", sz=16, color=DARK)
+bullet(tb.text_frame, "Memory-bandwidth-bound", sz=16, color=TEAL, bold=True)
 
 # Example
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(4.3),
-    Inches(11.7),
-    Inches(1.2),
-    RGBColor(0x2A, 0x2A, 0x45),
-)
-tb = add_text_box(slide, Inches(1.1), Inches(4.4), Inches(11.1), Inches(1.0))
-set_text(
+rect(s, L, Inches(4.9), W, Inches(1.0), OFF_WHITE)
+tb = box(s, Inches(1.5), Inches(5.0), Inches(10.2), Inches(0.8))
+txt(tb.text_frame, '"Is tomato a fruit?"', sz=17, bold=True, color=DARK)
+para(
     tb.text_frame,
-    'Example:  "Is tomato a fruit?"',
-    size=18,
-    bold=True,
+    'Prefill: process 5 tokens at once, output "Yes"    Decode: generate  ","  "it"  "is"  "."  one by one',
+    sz=15,
+    color=GRAY,
+    sp=Pt(4),
+)
+
+tb = box(s, L, Inches(6.2), W, Inches(0.8))
+txt(
+    tb.text_frame,
+    "KV-Cache: key/value tensors stored during prefill, read at every decode step. This is what gets transferred when phases are on different machines.",
+    sz=14,
     color=LIGHT_GRAY,
 )
-add_para(
-    tb.text_frame,
-    '→ [Prefill: 5 tokens in parallel] → "Yes" → [Decode] → "," → "it" → "is" → "." → [EOS]',
-    size=16,
-    color=WHITE,
-    space_before=Pt(4),
-)
 
-# KV-cache note
-tb = add_text_box(slide, Inches(0.8), Inches(5.7), Inches(11.7), Inches(1.2))
-set_text(
-    tb.text_frame,
-    "KV-Cache: Key-Value tensors stored during prefill, read during every decode step.",
-    size=16,
-    bold=False,
-    color=MED_GRAY,
-)
-add_para(
-    tb.text_frame,
-    "Size grows with sequence length — this is what must transfer when phases are on different machines.",
-    size=16,
-    color=MED_GRAY,
-)
+# ====== SLIDE 4: CHARACTERISTICS TABLE ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Two Phases, Very Different Profiles", sz=34, bold=True, color=BLACK)
 
-# =============================================
-# SLIDE 4: Phase Characteristics Comparison
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame,
-    "Two Phases, Fundamentally Different Characteristics",
-    size=34,
-    bold=True,
-    color=WHITE,
-)
-
-table = make_table(slide, 8, 3, Inches(1.5), Inches(1.5), Inches(10.3), Inches(4.8))
-headers = ["Property", "Prefill (Prompt)", "Decoding (Token Gen)"]
-data = [
+table = tbl(s, 8, 3, Inches(1.5), Inches(1.6), Inches(10.3), Inches(4.5))
+headers = ["", "Prefill", "Decoding"]
+rows = [
     ["Bottleneck", "Compute-bound", "Memory bandwidth-bound"],
-    ["Tokens processed", "All input (parallel)", "1 per step (sequential)"],
-    ["GPU utilization", "HIGH", "LOW (without batching)"],
-    ["Power draw", "Near TDP (~700W H100)", "Well below TDP"],
-    ["Key metric", "TTFT", "TPOT / TBT"],
-    ["Batching benefit", "Limited (already saturated)", "Large (improves utilization)"],
-    ["Ideal parallelism", "Tensor (intra-op)", "Pipeline (inter-op)"],
-]
-
-for i, h in enumerate(headers):
-    style_table_cell(
-        table.cell(0, i),
-        h,
-        size=16,
-        bold=True,
-        color=WHITE,
-        bg_color=RGBColor(0x0A, 0x3D, 0x62),
-    )
-
-for r, row in enumerate(data):
-    for c, val in enumerate(row):
-        bg = RGBColor(0x22, 0x22, 0x3A) if r % 2 == 0 else RGBColor(0x1A, 0x1A, 0x2E)
-        clr = ACCENT_TEAL if c == 1 else (ACCENT_ORANGE if c == 2 else LIGHT_GRAY)
-        style_table_cell(table.cell(r + 1, c), val, size=14, color=clr, bg_color=bg)
-
-tb = add_text_box(slide, Inches(1.5), Inches(6.5), Inches(10), Inches(0.6))
-set_text(
-    tb.text_frame,
-    "This asymmetry is the key insight behind both papers.",
-    size=20,
-    bold=True,
-    color=ACCENT_GREEN,
-    alignment=PP_ALIGN.CENTER,
-)
-
-
-# =============================================
-# SLIDE 5: Key Metrics
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(tb.text_frame, "Key Performance Metrics", size=36, bold=True, color=WHITE)
-
-table = make_table(slide, 7, 3, Inches(1.2), Inches(1.5), Inches(10.9), Inches(4.2))
-headers = ["Metric", "What It Measures", "Why It Matters"]
-data = [
-    ["TTFT", "Time to First Token (prefill latency)", "User-perceived responsiveness"],
-    [
-        "TBT / TPOT",
-        "Time Between Tokens / Per Output Token",
-        "Streaming reading experience",
-    ],
-    ["E2E Latency", "TTFT + TPOT \u00d7 output_length", "Total wait time"],
-    ["Throughput", "Requests per second", "System capacity"],
-    [
-        "Goodput",
-        "Throughput under SLO constraints",
-        "Cost efficiency (DistServe's key metric)",
-    ],
-    [
-        "SLO Attainment",
-        "% requests meeting latency targets",
-        "Service quality guarantee",
-    ],
+    ["Tokens per step", "All input tokens (parallel)", "One token (sequential)"],
+    ["GPU utilization", "High", "Low without batching"],
+    ["Power draw", "Near TDP", "Well below TDP"],
+    ["Latency metric", "TTFT (time to first token)", "TPOT / TBT (time per token)"],
+    ["Batching", "Limited benefit (already saturated)", "Significant benefit"],
+    ["Preferred parallelism", "Tensor (intra-op)", "Pipeline (inter-op)"],
 ]
 for i, h in enumerate(headers):
-    style_table_cell(
-        table.cell(0, i),
+    cell(
+        table,
+        0,
+        i,
         h,
-        size=15,
+        sz=15,
         bold=True,
         color=WHITE,
-        bg_color=RGBColor(0x0A, 0x3D, 0x62),
+        fill=BLUE if i == 1 else (TEAL if i == 2 else RGBColor(0x55, 0x55, 0x55)),
     )
-for r, row in enumerate(data):
-    bg = RGBColor(0x22, 0x22, 0x3A) if r % 2 == 0 else RGBColor(0x1A, 0x1A, 0x2E)
-    for c, val in enumerate(row):
-        clr = ACCENT_TEAL if c == 0 else WHITE
-        style_table_cell(
-            table.cell(r + 1, c), val, size=14, color=clr, bg_color=bg, bold=(c == 0)
-        )
+for r, row in enumerate(rows):
+    for c, v in enumerate(row):
+        f = OFF_WHITE if r % 2 == 0 else WHITE
+        cell(table, r + 1, c, v, sz=13, color=DARK, fill=f, bold=(c == 0))
 
-# SLO example
-add_shape_bg(
-    slide,
-    Inches(1.2),
-    Inches(5.9),
-    Inches(10.9),
-    Inches(1.0),
-    RGBColor(0x2A, 0x2A, 0x45),
-)
-tb = add_text_box(slide, Inches(1.5), Inches(6.0), Inches(10.3), Inches(0.8))
-set_text(
+tb = box(s, Inches(1.5), Inches(6.4), Inches(10.3), Inches(0.5))
+txt(
     tb.text_frame,
-    'SLO Example: "90% of chatbot requests must have TTFT < 0.25s AND TPOT < 0.1s"',
-    size=17,
-    bold=False,
-    color=ACCENT_ORANGE,
-    alignment=PP_ALIGN.CENTER,
-)
-
-
-# =============================================
-# SLIDE 6: The Problem
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame,
-    "The Problem: Why Colocating Phases Fails",
-    size=34,
+    "This asymmetry is what motivates both papers.",
+    sz=18,
     bold=True,
-    color=ACCENT_RED,
+    color=BLUE,
+    align=PP_ALIGN.CENTER,
 )
 
-# Problem 1
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.5),
-    Inches(3.7),
-    Inches(4.2),
-    RGBColor(0x50, 0x15, 0x15),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(1.6), Inches(3.3), Inches(4.0))
-set_text(
-    tb.text_frame,
-    "1. Prefill-Decode Interference",
-    size=18,
-    bold=True,
-    color=ACCENT_RED,
-)
-add_bullet(tb.text_frame, "Adding 1 prefill to decode batch:", size=14, color=WHITE)
-add_bullet(
-    tb.text_frame, "Up to 3x slower (input=128)", size=14, color=ACCENT_ORANGE, level=1
-)
-add_bullet(
-    tb.text_frame, "Up to 5x slower (input=1024)", size=14, color=ACCENT_ORANGE, level=1
-)
-add_bullet(tb.text_frame, "Interference in both directions", size=14, color=WHITE)
-add_para(
-    tb.text_frame, "[DistServe Figure 2]", size=12, color=MED_GRAY, space_before=Pt(8)
-)
+# ====== SLIDE 5: METRICS ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
-# Problem 2
-add_shape_bg(
-    slide,
-    Inches(4.8),
-    Inches(1.5),
-    Inches(3.7),
-    Inches(4.2),
-    RGBColor(0x50, 0x35, 0x05),
-)
-tb = add_text_box(slide, Inches(5.0), Inches(1.6), Inches(3.3), Inches(4.0))
-set_text(
-    tb.text_frame,
-    "2. Resource & Parallelism Coupling",
-    size=18,
-    bold=True,
-    color=ACCENT_ORANGE,
-)
-add_bullet(tb.text_frame, "Prefill wants tensor parallelism", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Decode wants pipeline parallelism", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Colocated = must pick ONE", size=14, color=WHITE)
-add_bullet(
-    tb.text_frame, "Suboptimal for at least one phase", size=14, color=ACCENT_ORANGE
-)
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Key Metrics", sz=34, bold=True, color=BLACK)
 
-# Problem 3
-add_shape_bg(
-    slide,
-    Inches(8.8),
-    Inches(1.5),
-    Inches(3.7),
-    Inches(4.2),
-    RGBColor(0x15, 0x15, 0x50),
-)
-tb = add_text_box(slide, Inches(9.0), Inches(1.6), Inches(3.3), Inches(4.0))
-set_text(
-    tb.text_frame,
-    "3. Over-Provisioning",
-    size=18,
-    bold=True,
-    color=RGBColor(0x74, 0xB9, 0xFF),
-)
-add_bullet(tb.text_frame, "Must over-provision to meet both SLOs", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Colocated: ~1.6 req/s (OPT-13B)", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Disaggregated: 3.3 req/s", size=14, color=ACCENT_GREEN)
-add_bullet(tb.text_frame, "= 2.1x improvement", size=14, color=ACCENT_GREEN, level=1)
-
-# Solution bar
-add_shape_bg(slide, Inches(0.8), Inches(6.0), Inches(11.7), Inches(1.0), ACCENT_GREEN)
-tb = add_text_box(slide, Inches(1.0), Inches(6.1), Inches(11.3), Inches(0.8))
-set_text(
-    tb.text_frame,
-    "The Solution: Separate the phases onto different hardware entirely.",
-    size=22,
-    bold=True,
-    color=WHITE,
-    alignment=PP_ALIGN.CENTER,
-)
-
-
-# =============================================
-# SLIDE 7: SECTION DIVIDER — SPLITWISE
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, SECTION_BG)
-add_shape_bg(slide, Inches(0), Inches(3.2), Inches(13.333), Pt(4), ACCENT_TEAL)
-
-tb = add_text_box(slide, Inches(1), Inches(2.0), Inches(11.333), Inches(1.5))
-set_text(
-    tb.text_frame,
-    "Splitwise",
-    size=52,
-    bold=True,
-    color=WHITE,
-    alignment=PP_ALIGN.CENTER,
-)
-
-tb2 = add_text_box(slide, Inches(1), Inches(3.7), Inches(11.333), Inches(1.5))
-set_text(
-    tb2.text_frame,
-    "Efficient Generative LLM Inference Using Phase Splitting",
-    size=24,
-    color=ACCENT_TEAL,
-    alignment=PP_ALIGN.CENTER,
-)
-add_para(
-    tb2.text_frame,
-    "Patel et al., ISCA 2024  |  University of Washington + Microsoft",
-    size=18,
-    color=LIGHT_GRAY,
-    alignment=PP_ALIGN.CENTER,
-    space_before=Pt(12),
-)
-
-
-# =============================================
-# SLIDE 8: Splitwise Production Traces
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame,
-    "Splitwise: Production Trace Characterization",
-    size=34,
-    bold=True,
-    color=WHITE,
-)
-
-tb = add_text_box(slide, Inches(0.8), Inches(1.3), Inches(11.7), Inches(0.6))
-set_text(
-    tb.text_frame,
-    "Real Azure production traces from two LLM inference services (Nov 2023)",
-    size=18,
-    color=ACCENT_TEAL,
-)
-
-# Insight boxes
-insights = [
-    (
-        "Insight I",
-        "Workloads vary widely",
-        "Coding: 1500 prompt, 13 output tokens\nConversation: 1020 prompt, 129 output",
-    ),
-    (
-        "Insight II",
-        "Token gen machines underutilized",
-        "60-70% of time running \u226420 active tokens\nGPU resources wasted",
-    ),
-    (
-        "Insight III",
-        "Most E2E time in token gen",
-        "Even coding (1500 prompt, 6 output):\nprompt \u2248 token time on BLOOM-176B",
-    ),
-]
-for i, (title, subtitle, body) in enumerate(insights):
-    x = Inches(0.8 + i * 4.1)
-    add_shape_bg(
-        slide, x, Inches(2.2), Inches(3.8), Inches(3.5), RGBColor(0x22, 0x22, 0x3A)
-    )
-    tb = add_text_box(slide, x + Inches(0.2), Inches(2.3), Inches(3.4), Inches(3.3))
-    set_text(tb.text_frame, title, size=20, bold=True, color=ACCENT_TEAL)
-    add_para(
-        tb.text_frame, subtitle, size=16, bold=True, color=WHITE, space_before=Pt(8)
-    )
-    for line in body.split("\n"):
-        add_para(tb.text_frame, line, size=14, color=LIGHT_GRAY, space_before=Pt(4))
-
-tb = add_text_box(slide, Inches(0.8), Inches(6.0), Inches(11.7), Inches(1.0))
-set_text(
-    tb.text_frame,
-    "[Reference: Splitwise Figures 3, 4 — Token distributions and batch utilization]",
-    size=14,
-    color=MED_GRAY,
-)
-
-
-# =============================================
-# SLIDE 9: Hardware Insights
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame, "Splitwise: The Hardware Insight", size=34, bold=True, color=WHITE
-)
-
-# A100 vs H100 table
-table = make_table(slide, 5, 4, Inches(1.5), Inches(1.4), Inches(7), Inches(3.0))
-h = ["Metric", "A100", "H100", "Ratio"]
+table = tbl(s, 7, 3, Inches(1.5), Inches(1.6), Inches(10.3), Inches(3.8))
+h = ["Metric", "Definition", "Why it matters"]
 d = [
-    ["TTFT (Coding)", "185 ms", "95 ms", "0.51\u00d7"],
-    ["TBT (Coding)", "52 ms", "31 ms", "0.70\u00d7"],
-    ["Cost per request", "$0.42", "$0.52", "1.24\u00d7"],
-    ["Energy", "1.37 Whr", "1.37 Whr", "1\u00d7"],
+    ["TTFT", "Time to first token", "User-perceived responsiveness"],
+    ["TBT / TPOT", "Time between output tokens", "Streaming reading speed"],
+    ["E2E Latency", "TTFT + TPOT x output length", "Total request time"],
+    ["Throughput", "Requests per second", "System capacity"],
+    ["Goodput", "Throughput while meeting SLO targets", "Cost efficiency"],
+    ["SLO Attainment", "% of requests within latency bounds", "Service quality"],
 ]
 for i, v in enumerate(h):
-    style_table_cell(
-        table.cell(0, i),
-        v,
-        size=15,
-        bold=True,
-        color=WHITE,
-        bg_color=RGBColor(0x0A, 0x3D, 0x62),
-    )
+    cell(table, 0, i, v, sz=14, bold=True, color=WHITE, fill=RGBColor(0x55, 0x55, 0x55))
 for r, row in enumerate(d):
-    bg = RGBColor(0x22, 0x22, 0x3A) if r % 2 == 0 else RGBColor(0x1A, 0x1A, 0x2E)
+    f = OFF_WHITE if r % 2 == 0 else WHITE
+    for c, v in enumerate(row):
+        cell(table, r + 1, c, v, sz=13, color=DARK, fill=f, bold=(c == 0))
+
+rect(s, Inches(1.5), Inches(5.7), Inches(10.3), Inches(0.7), OFF_WHITE)
+tb = box(s, Inches(1.8), Inches(5.75), Inches(9.7), Inches(0.6))
+txt(
+    tb.text_frame,
+    'Example SLO: "90% of requests must have TTFT < 0.25s and TPOT < 0.1s"',
+    sz=16,
+    color=GRAY,
+    align=PP_ALIGN.CENTER,
+)
+
+# ====== SLIDE 6: THE PROBLEM ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "The Problem with Colocation", sz=34, bold=True, color=RED_ACCENT)
+
+# Three problems side by side
+for i, (title, items) in enumerate(
+    [
+        (
+            "Prefill/Decode Interference",
+            [
+                "One prefill in a decode batch:",
+                "  3x latency hit (input=128)",
+                "  5x latency hit (input=1024)",
+                "Goes both directions",
+            ],
+        ),
+        (
+            "Parallelism Coupling",
+            [
+                "Prefill wants tensor parallelism",
+                "Decoding wants pipeline parallelism",
+                "Colocated: must pick one",
+                "One phase always loses",
+            ],
+        ),
+        (
+            "Over-Provisioning",
+            [
+                "Must provision for worst case",
+                "Colocated: 1.6 req/s (OPT-13B)",
+                "Disaggregated: 3.3 req/s",
+                "2.1x wasted capacity",
+            ],
+        ),
+    ]
+):
+    x = Inches(0.8 + i * 4.15)
+    rect(s, x, Inches(1.7), Inches(3.8), Inches(3.5), OFF_WHITE)
+    tb = box(s, x + Inches(0.3), Inches(1.8), Inches(3.2), Inches(3.3))
+    txt(tb.text_frame, title, sz=17, bold=True, color=RED_ACCENT)
+    for item in items:
+        bullet(tb.text_frame, item, sz=14, color=DARK, sp=Pt(6))
+
+rect(s, L, Inches(5.6), W, Inches(0.8), BLUE)
+tb = box(s, Inches(1.5), Inches(5.65), Inches(10.3), Inches(0.7))
+txt(
+    tb.text_frame,
+    "Solution: put prefill and decoding on separate hardware.",
+    sz=20,
+    bold=True,
+    color=WHITE,
+    align=PP_ALIGN.CENTER,
+)
+
+# ====== SLIDE 7: SPLITWISE DIVIDER ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, NAVY)
+rect(s, Inches(0), Inches(3.6), Inches(13.333), Pt(2), BLUE)
+
+tb = box(s, L, Inches(2.2), W, Inches(1))
+txt(tb.text_frame, "Splitwise", sz=48, bold=True, color=WHITE)
+
+tb = box(s, L, Inches(4.0), W, Inches(1.2))
+txt(
+    tb.text_frame,
+    "Efficient Generative LLM Inference Using Phase Splitting",
+    sz=22,
+    color=RGBColor(0x88, 0xAA, 0xDD),
+)
+para(
+    tb.text_frame,
+    "Patel et al. | University of Washington + Microsoft | ISCA 2024",
+    sz=16,
+    color=LIGHT_GRAY,
+    sp=Pt(10),
+)
+
+# ====== SLIDE 8: PRODUCTION TRACES ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(
+    tb.text_frame,
+    "Insights from Azure Production Traces",
+    sz=34,
+    bold=True,
+    color=BLACK,
+)
+
+tb = box(s, L, Inches(1.4), W, Inches(0.5))
+txt(
+    tb.text_frame,
+    "Real traces from two Microsoft Azure LLM services (coding + conversation, Nov 2023)",
+    sz=16,
+    color=GRAY,
+)
+
+for i, (num, title, detail) in enumerate(
+    [
+        (
+            "I",
+            "Workloads vary widely",
+            "Coding: 1500 prompt tokens, 13 output\nConversation: 1020 prompt, 129 output",
+        ),
+        (
+            "II",
+            "Token generation underutilizes GPUs",
+            "60-70% of time spent with 20 or fewer\nactive tokens in the batch",
+        ),
+        (
+            "III",
+            "Most wall-clock time is in decoding",
+            "Even large prompts (1500 tokens) take\nroughly the same time as 6 output tokens",
+        ),
+        (
+            "IV",
+            "Prompt batching saturates quickly",
+            "Throughput plateaus after ~2048 tokens\nToken batching keeps scaling",
+        ),
+    ]
+):
+    x = Inches(0.7 + i * 3.15)
+    rect(s, x, Inches(2.2), Inches(2.95), Inches(3.5), OFF_WHITE)
+    tb = box(s, x + Inches(0.2), Inches(2.3), Inches(2.55), Inches(3.3))
+    txt(tb.text_frame, f"Insight {num}", sz=14, bold=True, color=BLUE)
+    para(tb.text_frame, title, sz=15, bold=True, color=BLACK, sp=Pt(6))
+    for line in detail.split("\n"):
+        para(tb.text_frame, line, sz=13, color=GRAY, sp=Pt(4))
+
+tb = box(s, L, Inches(6.0), W, Inches(0.8))
+txt(tb.text_frame, "Splitwise Figure 3-4, Table IV", sz=13, color=LIGHT_GRAY)
+
+# ====== SLIDE 9: HARDWARE INSIGHT ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "The Hardware Insight", sz=34, bold=True, color=BLACK)
+
+table = tbl(s, 5, 4, Inches(1.5), Inches(1.5), Inches(6.5), Inches(2.5))
+for i, v in enumerate(["", "A100", "H100", "Ratio"]):
+    cell(table, 0, i, v, sz=14, bold=True, color=WHITE, fill=RGBColor(0x55, 0x55, 0x55))
+for r, row in enumerate(
+    [
+        ["TTFT (coding)", "185 ms", "95 ms", "0.51x"],
+        ["TBT (coding)", "52 ms", "31 ms", "0.70x"],
+        ["Cost per request", "$0.42", "$0.52", "1.24x"],
+        ["Energy", "1.37 Whr", "1.37 Whr", "1x"],
+    ]
+):
+    f = OFF_WHITE if r % 2 == 0 else WHITE
     for c, v in enumerate(row):
         clr = (
-            ACCENT_GREEN
-            if (r == 1 and c == 3)
-            else (ACCENT_RED if (r == 2 and c == 3) else WHITE)
+            GREEN
+            if (r == 0 and c == 3)
+            else (RED_ACCENT if (r == 2 and c == 3) else DARK)
         )
-        style_table_cell(table.cell(r + 1, c), v, size=14, color=clr, bg_color=bg)
+        cell(table, r + 1, c, v, sz=13, color=clr, fill=f, bold=(c == 0))
 
-# Key insight box
-add_shape_bg(
-    slide,
-    Inches(1.5),
-    Inches(4.6),
-    Inches(10.3),
-    Inches(1.5),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(1.8), Inches(4.7), Inches(9.7), Inches(1.3))
-set_text(
+rect(s, Inches(1.5), Inches(4.3), Inches(10.3), Inches(1.8), OFF_WHITE)
+tb = box(s, Inches(1.8), Inches(4.4), Inches(9.7), Inches(1.6))
+txt(tb.text_frame, "H100 has 3.43x more compute than A100", sz=17, color=DARK)
+para(
     tb.text_frame,
-    "Insight VII — The Key Insight:",
-    size=20,
+    "Prefill benefits (TTFT: 0.51x). Token generation barely does (TBT: 0.70x).",
+    sz=17,
+    color=DARK,
+    sp=Pt(8),
+)
+para(
+    tb.text_frame,
+    "Token generation can run on cheaper hardware without much performance loss.",
+    sz=17,
     bold=True,
-    color=ACCENT_TEAL,
-)
-add_para(
-    tb.text_frame,
-    "Token generation barely benefits from H100's 3.43\u00d7 compute advantage.",
-    size=18,
-    color=WHITE,
-    space_before=Pt(8),
-)
-add_para(
-    tb.text_frame,
-    "A100 is more cost-efficient for token generation!",
-    size=18,
-    bold=True,
-    color=ACCENT_ORANGE,
-    space_before=Pt(4),
+    color=BLUE,
+    sp=Pt(8),
 )
 
-tb = add_text_box(slide, Inches(0.8), Inches(6.3), Inches(11.7), Inches(0.8))
-set_text(
+tb = box(s, Inches(1.5), Inches(6.3), Inches(10.3), Inches(0.5))
+txt(
     tb.text_frame,
-    "H100: 3.43\u00d7 more compute, but memory bandwidth only 1.64\u00d7 and capacity 1.0\u00d7 (both 80GB)",
-    size=16,
-    color=MED_GRAY,
+    "Power-capping token machines to 70% has virtually no latency impact.",
+    sz=15,
+    color=GRAY,
 )
-add_para(
+
+# ====== SLIDE 10: ARCHITECTURE ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Splitwise Architecture", sz=34, bold=True, color=BLACK)
+
+# Scheduler
+rect(s, Inches(4.5), Inches(1.5), Inches(4.3), Inches(0.7), RGBColor(0x55, 0x55, 0x55))
+tb = box(s, Inches(4.7), Inches(1.52), Inches(3.9), Inches(0.6))
+txt(
     tb.text_frame,
-    "[Reference: Splitwise Table I & Table IV — A100 vs H100 specs and performance on Llama-70B]",
-    size=14,
-    color=MED_GRAY,
-)
-
-
-# =============================================
-# SLIDE 10: Splitwise Architecture
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame, "Splitwise: Three Machine Pools", size=34, bold=True, color=WHITE
-)
-
-# CLS box
-add_shape_bg(
-    slide, Inches(4.2), Inches(1.3), Inches(5), Inches(0.8), RGBColor(0x0A, 0x3D, 0x62)
-)
-tb = add_text_box(slide, Inches(4.4), Inches(1.35), Inches(4.6), Inches(0.7))
-set_text(
-    tb.text_frame,
-    "Cluster-Level Scheduler (CLS)",
-    size=18,
+    "Cluster-Level Scheduler (JSQ routing)",
+    sz=15,
     bold=True,
     color=WHITE,
-    alignment=PP_ALIGN.CENTER,
+    align=PP_ALIGN.CENTER,
 )
 
 # Prompt Pool
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(2.6),
-    Inches(3.8),
-    Inches(2.5),
-    RGBColor(0x15, 0x50, 0x70),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(2.7), Inches(3.4), Inches(2.3))
-set_text(tb.text_frame, "Prompt Pool", size=22, bold=True, color=ACCENT_TEAL)
-add_bullet(tb.text_frame, "Compute-optimized GPUs (H100s)", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Dedicated to prefill", size=14, color=WHITE)
-add_bullet(tb.text_frame, "FCFS, batch \u2264 2048 tokens", size=14, color=LIGHT_GRAY)
-add_bullet(tb.text_frame, "High compute utilization", size=14, color=ACCENT_GREEN)
+rect(s, Inches(0.8), Inches(2.8), Inches(3.8), Inches(2.5), RGBColor(0xE8, 0xEE, 0xF8))
+tb = box(s, Inches(1.0), Inches(2.9), Inches(3.4), Inches(2.3))
+txt(tb.text_frame, "Prompt Pool", sz=20, bold=True, color=BLUE)
+bullet(tb.text_frame, "Compute-optimized GPUs (H100)", sz=14, color=DARK, sp=Pt(10))
+bullet(tb.text_frame, "Dedicated to prefill", sz=14, color=DARK)
+bullet(tb.text_frame, "FCFS, batch up to 2048 tokens", sz=14, color=GRAY)
 
-# Arrow (KV Cache)
-add_shape_bg(
-    slide,
-    Inches(4.8),
-    Inches(3.2),
-    Inches(3.7),
-    Inches(0.6),
-    RGBColor(0x2A, 0x2A, 0x45),
-)
-tb = add_text_box(slide, Inches(4.9), Inches(3.25), Inches(3.5), Inches(0.5))
-set_text(
+# Arrow
+rect(s, Inches(4.8), Inches(3.5), Inches(3.7), Inches(0.5), OFF_WHITE)
+tb = box(s, Inches(4.9), Inches(3.5), Inches(3.5), Inches(0.5))
+txt(
     tb.text_frame,
-    "KV-Cache Transfer  \u2192",
-    size=16,
+    "KV-cache transfer  >>",
+    sz=14,
     bold=True,
-    color=ACCENT_ORANGE,
-    alignment=PP_ALIGN.CENTER,
+    color=GRAY,
+    align=PP_ALIGN.CENTER,
 )
 
 # Token Pool
-add_shape_bg(
-    slide,
-    Inches(8.8),
-    Inches(2.6),
-    Inches(3.8),
-    Inches(2.5),
-    RGBColor(0x50, 0x15, 0x40),
-)
-tb = add_text_box(slide, Inches(9.0), Inches(2.7), Inches(3.4), Inches(2.3))
-set_text(tb.text_frame, "Token Pool", size=22, bold=True, color=ACCENT_ORANGE)
-add_bullet(tb.text_frame, "Cost-efficient GPUs (A100s)", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Dedicated to token generation", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Continuous batching", size=14, color=LIGHT_GRAY)
-add_bullet(tb.text_frame, "Memory-bandwidth focus", size=14, color=ACCENT_GREEN)
+rect(s, Inches(8.7), Inches(2.8), Inches(3.8), Inches(2.5), RGBColor(0xE8, 0xF5, 0xF0))
+tb = box(s, Inches(8.9), Inches(2.9), Inches(3.4), Inches(2.3))
+txt(tb.text_frame, "Token Pool", sz=20, bold=True, color=TEAL)
+bullet(tb.text_frame, "Cost-efficient GPUs (A100)", sz=14, color=DARK, sp=Pt(10))
+bullet(tb.text_frame, "Dedicated to generation", sz=14, color=DARK)
+bullet(tb.text_frame, "Continuous batching", sz=14, color=GRAY)
 
 # Mixed Pool
-add_shape_bg(
-    slide,
-    Inches(2.8),
-    Inches(5.5),
-    Inches(7.7),
-    Inches(1.3),
-    RGBColor(0x2A, 0x35, 0x15),
-)
-tb = add_text_box(slide, Inches(3.0), Inches(5.55), Inches(7.3), Inches(1.2))
-set_text(tb.text_frame, "Mixed Pool", size=20, bold=True, color=ACCENT_GREEN)
-add_para(
+rect(s, Inches(3.5), Inches(5.7), Inches(6.3), Inches(1.0), OFF_WHITE)
+tb = box(s, Inches(3.7), Inches(5.75), Inches(5.9), Inches(0.9))
+txt(tb.text_frame, "Mixed Pool", sz=17, bold=True, color=DARK)
+para(
     tb.text_frame,
-    "Flexible machines handling overflow from either pool  |  Dynamically repurposed  |  Mixed continuous batching",
-    size=14,
-    color=WHITE,
-    space_before=Pt(4),
+    "Flexible machines that handle overflow from either pool",
+    sz=14,
+    color=GRAY,
+    sp=Pt(4),
 )
 
+# ====== SLIDE 11: KV-CACHE TRANSFER ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
-# =============================================
-# SLIDE 11: KV-Cache Transfer
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "KV-Cache Transfer", sz=34, bold=True, color=BLACK)
 
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
+# Naive
+rect(s, L, Inches(1.7), Inches(5.2), Inches(2.8), RGBColor(0xFD, 0xF0, 0xEF))
+tb = box(s, Inches(1.5), Inches(1.8), Inches(4.6), Inches(2.6))
+txt(tb.text_frame, "Serialized (naive)", sz=20, bold=True, color=RED_ACCENT)
+bullet(tb.text_frame, "Wait for full prefill to finish", sz=15, color=DARK, sp=Pt(10))
+bullet(tb.text_frame, "Transfer entire KV-cache at once", sz=15, color=DARK)
+bullet(
+    tb.text_frame, "64% overhead on second token", sz=15, color=RED_ACCENT, bold=True
+)
+
+# Optimized
+rect(s, Inches(6.9), Inches(1.7), Inches(5.2), Inches(2.8), RGBColor(0xEF, 0xFA, 0xF4))
+tb = box(s, Inches(7.2), Inches(1.8), Inches(4.6), Inches(2.6))
+txt(tb.text_frame, "Per-layer (optimized)", sz=20, bold=True, color=GREEN)
+bullet(
     tb.text_frame,
-    "Splitwise: KV-Cache Transfer Optimization",
-    size=34,
+    "Send each layer's cache as it computes",
+    sz=15,
+    color=DARK,
+    sp=Pt(10),
+)
+bullet(tb.text_frame, "Transfer overlaps with computation", sz=15, color=DARK)
+bullet(tb.text_frame, "16% overhead on second token", sz=15, color=GREEN, bold=True)
+
+# Results
+rect(s, L, Inches(4.9), W, Inches(1.8), OFF_WHITE)
+tb = box(s, Inches(1.5), Inches(5.0), Inches(10.3), Inches(1.6))
+txt(
+    tb.text_frame,
+    "Transfer overhead: 0.8% of end-to-end latency",
+    sz=20,
     bold=True,
-    color=WHITE,
+    color=BLUE,
 )
-
-# Naive vs Optimized
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(3.0),
-    RGBColor(0x50, 0x15, 0x15),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(1.6), Inches(5.2), Inches(2.8))
-set_text(
-    tb.text_frame, "Naive: Serialized Transfer", size=20, bold=True, color=ACCENT_RED
-)
-add_bullet(tb.text_frame, "Wait for full prefill to complete", size=15, color=WHITE)
-add_bullet(tb.text_frame, "Transfer entire KV-cache at once", size=15, color=WHITE)
-add_bullet(tb.text_frame, "Then start decoding", size=15, color=WHITE)
-add_bullet(
-    tb.text_frame, "64% overhead to 2nd token latency", size=15, color=ACCENT_RED
-)
-
-add_shape_bg(
-    slide,
-    Inches(6.9),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(3.0),
-    RGBColor(0x0A, 0x3D, 0x20),
-)
-tb = add_text_box(slide, Inches(7.1), Inches(1.6), Inches(5.2), Inches(2.8))
-set_text(
+para(
     tb.text_frame,
-    "Optimized: Per-Layer Transfer",
-    size=20,
+    "Constant 5-8ms regardless of prompt size (MSCCL++ zero-copy over InfiniBand)",
+    sz=16,
+    color=DARK,
+    sp=Pt(8),
+)
+para(
+    tb.text_frame,
+    "Both papers confirm: KV-cache transfer is not the bottleneck.",
+    sz=16,
     bold=True,
-    color=ACCENT_GREEN,
-)
-add_bullet(
-    tb.text_frame, "Send each layer's KV-cache immediately", size=15, color=WHITE
-)
-add_bullet(
-    tb.text_frame, "Transfer overlaps with next layer computation", size=15, color=WHITE
-)
-add_bullet(tb.text_frame, "MSCCL++ zero-copy over InfiniBand", size=15, color=WHITE)
-add_bullet(
-    tb.text_frame, "Only 16.5% overhead to 2nd token", size=15, color=ACCENT_GREEN
+    color=GREEN,
+    sp=Pt(8),
 )
 
-# Result box
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(4.8),
-    Inches(11.7),
-    Inches(1.8),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(4.9), Inches(11.3), Inches(1.6))
-set_text(tb.text_frame, "Result", size=22, bold=True, color=ACCENT_TEAL)
-add_bullet(
-    tb.text_frame,
-    "Per-layer: only 0.8% of E2E latency (constant ~5-8ms regardless of prompt size)",
-    size=16,
-    color=WHITE,
-)
-add_bullet(
-    tb.text_frame,
-    "Serialized: up to 3% of E2E for large prompts",
-    size=16,
-    color=LIGHT_GRAY,
-)
-add_para(
-    tb.text_frame,
-    "KV-cache transfer is NOT the bottleneck on modern GPU clusters.",
-    size=18,
-    bold=True,
-    color=ACCENT_GREEN,
-    space_before=Pt(12),
-)
+# ====== SLIDE 12: CLUSTER DESIGNS ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Cluster Configurations", sz=34, bold=True, color=BLACK)
 
-# =============================================
-# SLIDE 12: Cluster Designs
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame,
-    "Splitwise: Heterogeneous Cluster Designs",
-    size=34,
-    bold=True,
-    color=WHITE,
-)
-
-table = make_table(slide, 5, 4, Inches(1.5), Inches(1.5), Inches(10.3), Inches(2.8))
-h = ["Design", "Prompt Machine", "Token Machine", "Key Tradeoff"]
-d = [
-    ["Splitwise-AA", "DGX-A100", "DGX-A100", "Lowest cost, older GPUs"],
-    ["Splitwise-HH", "DGX-H100", "DGX-H100", "Best raw performance"],
-    ["Splitwise-HA", "DGX-H100", "DGX-A100", "Best of both worlds"],
-    ["Splitwise-HHcap", "DGX-H100", "H100 @ 70% power", "Power optimization"],
-]
-for i, v in enumerate(h):
-    style_table_cell(
-        table.cell(0, i),
-        v,
-        size=15,
-        bold=True,
-        color=WHITE,
-        bg_color=RGBColor(0x0A, 0x3D, 0x62),
-    )
-for r, row in enumerate(d):
-    bg = RGBColor(0x22, 0x22, 0x3A) if r % 2 == 0 else RGBColor(0x1A, 0x1A, 0x2E)
+table = tbl(s, 5, 4, Inches(1.5), Inches(1.6), Inches(10.3), Inches(2.5))
+for i, v in enumerate(["Configuration", "Prompt GPUs", "Token GPUs", "Tradeoff"]):
+    cell(table, 0, i, v, sz=14, bold=True, color=WHITE, fill=RGBColor(0x55, 0x55, 0x55))
+for r, row in enumerate(
+    [
+        ["Splitwise-AA", "DGX-A100", "DGX-A100", "Lowest cost"],
+        ["Splitwise-HH", "DGX-H100", "DGX-H100", "Best performance"],
+        ["Splitwise-HA", "DGX-H100", "DGX-A100", "Best cost-performance"],
+        ["Splitwise-HHcap", "DGX-H100", "H100 at 70% power", "Power savings"],
+    ]
+):
+    f = OFF_WHITE if r % 2 == 0 else WHITE
     for c, v in enumerate(row):
-        clr = ACCENT_TEAL if c == 0 else WHITE
-        style_table_cell(
-            table.cell(r + 1, c), v, size=14, color=clr, bg_color=bg, bold=(c == 0)
-        )
+        cell(table, r + 1, c, v, sz=13, color=DARK, fill=f, bold=(c == 0))
 
+# ====== SLIDE 13: SPLITWISE RESULTS ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
-# =============================================
-# SLIDE 13: Splitwise Results
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame, "Splitwise: Evaluation Results", size=34, bold=True, color=WHITE
-)
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Splitwise Results", sz=34, bold=True, color=BLACK)
 
 results = [
-    (
-        "Iso-Power Throughput",
-        "Same power budget",
-        "Splitwise-AA: 2.15\u00d7 more throughput\nvs Baseline-A100",
-        ACCENT_TEAL,
-    ),
-    (
-        "Iso-Cost Throughput",
-        "Same cost",
-        "1.4\u00d7 more throughput at\n20% lower cost vs Baseline-H100",
-        ACCENT_ORANGE,
-    ),
-    (
-        "Iso-Throughput Power",
-        "Same throughput target",
-        "Splitwise-HHcap: 25% lower power\nvs Baseline-H100",
-        ACCENT_GREEN,
-    ),
-    (
-        "Iso-Throughput Cost",
-        "Same throughput target",
-        "Splitwise-AA: 25% lower cost\nvs Baseline-H100",
-        RGBColor(0x74, 0xB9, 0xFF),
-    ),
+    ("Same power & cost budget", "2.15x more throughput vs Baseline-A100"),
+    ("Same cost", "1.4x more throughput at 20% lower cost vs Baseline-H100"),
+    ("Same throughput target", "25% lower power (HHcap) or 25% lower cost (AA)"),
 ]
-for i, (title, sub, body, clr) in enumerate(results):
-    x = Inches(0.6 + (i % 2) * 6.3)
-    y = Inches(1.5 + (i // 2) * 2.6)
-    add_shape_bg(slide, x, y, Inches(6.0), Inches(2.2), RGBColor(0x22, 0x22, 0x3A))
-    tb = add_text_box(slide, x + Inches(0.2), y + Inches(0.1), Inches(5.6), Inches(2.0))
-    set_text(tb.text_frame, title, size=18, bold=True, color=clr)
-    add_para(tb.text_frame, sub, size=13, color=MED_GRAY, space_before=Pt(2))
-    for line in body.split("\n"):
-        add_para(tb.text_frame, line, size=15, color=WHITE, space_before=Pt(4))
+for i, (cond, result) in enumerate(results):
+    y = Inches(1.7 + i * 1.3)
+    rect(s, L, y, W, Inches(1.1), OFF_WHITE)
+    tb = box(s, Inches(1.5), y + Inches(0.1), Inches(10.3), Inches(0.9))
+    txt(tb.text_frame, cond, sz=15, color=GRAY)
+    para(tb.text_frame, result, sz=18, bold=True, color=BLUE, sp=Pt(4))
 
-add_shape_bg(
-    slide,
-    Inches(0.6),
-    Inches(6.2),
-    Inches(12.1),
-    Inches(0.8),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(0.8), Inches(6.25), Inches(11.7), Inches(0.7))
-set_text(
+rect(s, L, Inches(5.7), W, Inches(1.0), RGBColor(0xE8, 0xEE, 0xF8))
+tb = box(s, Inches(1.5), Inches(5.8), Inches(10.3), Inches(0.8))
+txt(
     tb.text_frame,
-    "Overall: up to 1.4\u00d7 throughput at 20% lower cost, or 2.35\u00d7 throughput at same cost & power",
-    size=18,
+    "Headline: up to 1.4x throughput at 20% lower cost, or 2.35x throughput at same budget",
+    sz=18,
     bold=True,
-    color=ACCENT_GREEN,
-    alignment=PP_ALIGN.CENTER,
+    color=BLUE,
+    align=PP_ALIGN.CENTER,
 )
 
-
-# =============================================
-# SLIDE 14: Splitwise Summary
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(tb.text_frame, "Splitwise: Summary", size=36, bold=True, color=WHITE)
-
-tb = add_text_box(slide, Inches(0.8), Inches(1.5), Inches(11.7), Inches(4.5))
-set_text(tb.text_frame, "", size=16, color=WHITE)
-items = [
-    (
-        "1.",
-        "Characterized real production LLM workloads \u2192 7 key insights about phase asymmetry",
-    ),
-    (
-        "2.",
-        "Designed phase splitting architecture with three machine pools (prompt, token, mixed)",
-    ),
-    (
-        "3.",
-        "Optimized KV-cache transfer with per-layer overlapping (<1% of E2E overhead)",
-    ),
-    ("4.", "Explored heterogeneous cluster designs (AA, HH, HA, HHcap)"),
-    (
-        "5.",
-        "Achieved: 1.4\u00d7 throughput at 20% lower cost, OR 2.35\u00d7 throughput at same power",
-    ),
-]
-for num, text in items:
-    add_para(tb.text_frame, f"{num}  {text}", size=18, color=WHITE, space_before=Pt(16))
-
-tb = add_text_box(slide, Inches(0.8), Inches(5.5), Inches(11.7), Inches(1.5))
-set_text(tb.text_frame, "Limitations:", size=18, bold=True, color=ACCENT_ORANGE)
-add_bullet(
+tb = box(s, L, Inches(6.8), W, Inches(0.5))
+txt(
     tb.text_frame,
-    "Requires careful cluster provisioning (but provides simulator)",
-    size=15,
+    "Robust to workload changes (7% drop with mismatched workload) and model changes.",
+    sz=14,
+    color=GRAY,
+)
+
+# ====== SLIDE 14: SPLITWISE SUMMARY ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Splitwise Summary", sz=34, bold=True, color=BLACK)
+
+tb = box(s, L, Inches(1.8), W, Inches(3.5))
+txt(tb.text_frame, "", sz=16, color=DARK)
+for item in [
+    "Characterized real Azure production workloads, found 7 key insights",
+    "Designed three-pool architecture (prompt, token, mixed)",
+    "Optimized KV-cache transfer: 0.8% of end-to-end latency",
+    "Explored four heterogeneous cluster configurations",
+    "Result: cheaper GPUs for token generation work just as well",
+]:
+    bullet(tb.text_frame, item, sz=17, color=DARK, sp=Pt(12))
+
+rect(s, L, Inches(5.2), W, Inches(0.6), OFF_WHITE)
+tb = box(s, Inches(1.5), Inches(5.25), Inches(10.3), Inches(0.5))
+txt(
+    tb.text_frame,
+    "Limitations: needs cluster provisioning, less useful with few GPUs, basic fault tolerance",
+    sz=14,
+    color=GRAY,
+    align=PP_ALIGN.CENTER,
+)
+
+# ====== SLIDE 15: DISTSERVE DIVIDER ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, NAVY)
+rect(s, Inches(0), Inches(3.6), Inches(13.333), Pt(2), TEAL)
+
+tb = box(s, L, Inches(2.2), W, Inches(1))
+txt(tb.text_frame, "DistServe", sz=48, bold=True, color=WHITE)
+
+tb = box(s, L, Inches(4.0), W, Inches(1.2))
+txt(
+    tb.text_frame,
+    "Disaggregating Prefill and Decoding for Goodput-Optimized LLM Serving",
+    sz=20,
+    color=RGBColor(0x88, 0xCC, 0xBB),
+)
+para(
+    tb.text_frame,
+    "Zhong et al. | Peking University + StepFun + UC San Diego | OSDI 2024",
+    sz=16,
     color=LIGHT_GRAY,
-)
-add_bullet(
-    tb.text_frame,
-    "Less beneficial with very few GPUs  |  Basic fault tolerance",
-    size=15,
-    color=LIGHT_GRAY,
+    sp=Pt(10),
 )
 
+# ====== SLIDE 16: GOODPUT ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
-# =============================================
-# SLIDE 15: SECTION DIVIDER — DISTSERVE
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, RGBColor(0x3D, 0x0A, 0x2E))
-add_shape_bg(slide, Inches(0), Inches(3.2), Inches(13.333), Pt(4), ACCENT_ORANGE)
-
-tb = add_text_box(slide, Inches(1), Inches(2.0), Inches(11.333), Inches(1.5))
-set_text(
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(
     tb.text_frame,
-    "DistServe",
-    size=52,
+    "Goodput: The Right Optimization Target",
+    sz=34,
     bold=True,
-    color=WHITE,
-    alignment=PP_ALIGN.CENTER,
+    color=BLACK,
 )
 
-tb2 = add_text_box(slide, Inches(1), Inches(3.7), Inches(11.333), Inches(1.5))
-set_text(
-    tb2.text_frame,
-    "Disaggregating Prefill and Decoding for Goodput-optimized LLM Serving",
-    size=22,
-    color=ACCENT_ORANGE,
-    alignment=PP_ALIGN.CENTER,
-)
-add_para(
-    tb2.text_frame,
-    "Zhong et al., OSDI 2024  |  Peking University + StepFun + UC San Diego",
-    size=18,
-    color=LIGHT_GRAY,
-    alignment=PP_ALIGN.CENTER,
-    space_before=Pt(12),
-)
-
-
-# =============================================
-# SLIDE 16: DistServe Motivation
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
+rect(s, L, Inches(1.7), W, Inches(1.2), RGBColor(0xE8, 0xEE, 0xF8))
+tb = box(s, Inches(1.5), Inches(1.8), Inches(10.3), Inches(1.0))
+txt(
     tb.text_frame,
-    "DistServe: Goodput as the Optimization Target",
-    size=34,
+    "Per-GPU Goodput = max request rate while meeting SLO targets",
+    sz=20,
     bold=True,
-    color=WHITE,
+    color=BLUE,
+    align=PP_ALIGN.CENTER,
+)
+para(
+    tb.text_frame,
+    "Higher goodput = lower cost per query = what production systems actually optimize for",
+    sz=16,
+    color=GRAY,
+    align=PP_ALIGN.CENTER,
+    sp=Pt(8),
 )
 
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.5),
-    Inches(11.7),
-    Inches(1.5),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(1.6), Inches(11.3), Inches(1.3))
-set_text(
+tb = box(s, L, Inches(3.3), W, Inches(3))
+txt(tb.text_frame, "DistServe's approach:", sz=20, bold=True, color=BLACK)
+bullet(
     tb.text_frame,
-    "Per-GPU Goodput = Maximum request rate while meeting SLO attainment target",
-    size=20,
+    "Separate prefill and decoding onto different GPU instances",
+    sz=17,
+    color=DARK,
+    sp=Pt(14),
+)
+bullet(
+    tb.text_frame,
+    "Optimize parallelism strategy for each phase independently",
+    sz=17,
+    color=DARK,
+)
+bullet(
+    tb.text_frame,
+    "Automatically find the best placement on the cluster",
+    sz=17,
+    color=DARK,
+)
+bullet(
+    tb.text_frame,
+    "Use simulation to evaluate configurations (under 2% error)",
+    sz=17,
+    color=DARK,
+)
+
+# ====== SLIDE 17: TRADEOFF ANALYSIS ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(
+    tb.text_frame,
+    "Tradeoff Analysis After Disaggregation",
+    sz=34,
     bold=True,
-    color=ACCENT_ORANGE,
-    alignment=PP_ALIGN.CENTER,
-)
-add_para(
-    tb.text_frame,
-    "Higher goodput = lower cost per query = what production LLM services actually optimize for",
-    size=16,
-    color=WHITE,
-    alignment=PP_ALIGN.CENTER,
-    space_before=Pt(8),
+    color=BLACK,
 )
 
-tb = add_text_box(slide, Inches(0.8), Inches(3.3), Inches(11.7), Inches(0.6))
-set_text(tb.text_frame, "DistServe's Approach:", size=22, bold=True, color=ACCENT_TEAL)
-
-tb = add_text_box(slide, Inches(0.8), Inches(4.0), Inches(11.7), Inches(2.5))
-set_text(tb.text_frame, "", size=16, color=WHITE)
-add_bullet(
+# Prefill
+rect(s, L, Inches(1.7), Inches(5.2), Inches(3.8), RGBColor(0xE8, 0xEE, 0xF8))
+tb = box(s, Inches(1.5), Inches(1.8), Inches(4.6), Inches(3.6))
+txt(tb.text_frame, "Prefill Instances", sz=20, bold=True, color=BLUE)
+bullet(tb.text_frame, "Modeled as M/D/1 queue", sz=15, color=DARK, sp=Pt(10))
+bullet(tb.text_frame, "Avg TTFT = execution time + queuing delay", sz=15, color=DARK)
+bullet(tb.text_frame, "Low request rates:", sz=15, color=DARK, sp=Pt(10))
+bullet(
     tb.text_frame,
-    "Disaggregate prefill and decoding onto separate GPU instances",
-    size=18,
-    color=WHITE,
+    "Tensor parallelism better (cuts execution time)",
+    sz=13,
+    color=GRAY,
+    level=1,
 )
-add_bullet(
+bullet(tb.text_frame, "High request rates:", sz=15, color=DARK, sp=Pt(6))
+bullet(
     tb.text_frame,
-    "Co-optimize resource allocation and parallelism for each phase independently",
-    size=18,
-    color=WHITE,
-)
-add_bullet(
-    tb.text_frame,
-    "Automatically find the best placement on the physical cluster",
-    size=18,
-    color=WHITE,
-)
-add_bullet(
-    tb.text_frame,
-    "Evaluate with SLO attainment as the primary metric",
-    size=18,
-    color=WHITE,
+    "Pipeline parallelism better (handles queuing)",
+    sz=13,
+    color=GRAY,
+    level=1,
 )
 
-tb = add_text_box(slide, Inches(0.8), Inches(6.2), Inches(11.7), Inches(0.8))
-set_text(
+# Decode
+rect(s, Inches(6.9), Inches(1.7), Inches(5.2), Inches(3.8), RGBColor(0xE8, 0xF5, 0xF0))
+tb = box(s, Inches(7.2), Inches(1.8), Inches(4.6), Inches(3.6))
+txt(tb.text_frame, "Decoding Instances", sz=20, bold=True, color=TEAL)
+bullet(tb.text_frame, "Single job is bandwidth-bound", sz=15, color=DARK, sp=Pt(10))
+bullet(tb.text_frame, "Batching is essential for utilization", sz=15, color=DARK)
+bullet(tb.text_frame, "Disaggregation helps:", sz=15, color=DARK, sp=Pt(10))
+bullet(
     tb.text_frame,
-    "[DistServe Figure 1: disaggregated prefill-only and decode-only outperform colocated systems]",
-    size=14,
-    color=MED_GRAY,
+    "Multiple prefill instances feed one decoder",
+    sz=13,
+    color=GRAY,
+    level=1,
+)
+bullet(
+    tb.text_frame,
+    "Naturally larger batches, better GPU use",
+    sz=13,
+    color=GRAY,
+    level=1,
+)
+bullet(
+    tb.text_frame, "Large batches approach compute-bound", sz=15, color=DARK, sp=Pt(6)
 )
 
-
-# =============================================
-# SLIDE 17: DistServe Tradeoff Analysis
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
+rect(s, L, Inches(5.8), W, Inches(0.7), OFF_WHITE)
+tb = box(s, Inches(1.5), Inches(5.85), Inches(10.3), Inches(0.6))
+txt(
     tb.text_frame,
-    "DistServe: Tradeoff Analysis (Post-Disaggregation)",
-    size=34,
+    "After disaggregation, each phase has independent knobs. Impossible when sharing GPUs.",
+    sz=17,
     bold=True,
-    color=WHITE,
+    color=BLUE,
+    align=PP_ALIGN.CENTER,
 )
 
-# Prefill analysis
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(4.0),
-    RGBColor(0x15, 0x50, 0x70),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(1.6), Inches(5.2), Inches(3.8))
-set_text(tb.text_frame, "Prefill Instance", size=22, bold=True, color=ACCENT_TEAL)
-add_bullet(tb.text_frame, "Modeled as M/D/1 queue", size=15, color=WHITE)
-add_bullet(tb.text_frame, "Avg TTFT = exec time + queuing delay", size=15, color=WHITE)
-add_bullet(
-    tb.text_frame,
-    "Low arrival rates \u2192 intra-op parallelism",
-    size=15,
-    color=ACCENT_GREEN,
-)
-add_para(
-    tb.text_frame,
-    "  (reduces execution time)",
-    size=13,
-    color=LIGHT_GRAY,
-    space_before=Pt(2),
-)
-add_bullet(
-    tb.text_frame,
-    "High arrival rates \u2192 inter-op parallelism",
-    size=15,
-    color=ACCENT_ORANGE,
-)
-add_para(
-    tb.text_frame,
-    "  (reduces queuing delay)",
-    size=13,
-    color=LIGHT_GRAY,
-    space_before=Pt(2),
-)
-add_para(
-    tb.text_frame,
-    "[Figure 4a: crossover at different rates]",
-    size=12,
-    color=MED_GRAY,
-    space_before=Pt(12),
-)
+# ====== SLIDE 18: PLACEMENT ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
-# Decode analysis
-add_shape_bg(
-    slide,
-    Inches(6.9),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(4.0),
-    RGBColor(0x50, 0x15, 0x40),
-)
-tb = add_text_box(slide, Inches(7.1), Inches(1.6), Inches(5.2), Inches(3.8))
-set_text(tb.text_frame, "Decoding Instance", size=22, bold=True, color=ACCENT_ORANGE)
-add_bullet(tb.text_frame, "Memory-bandwidth-bound (single job)", size=15, color=WHITE)
-add_bullet(tb.text_frame, "Batching is CRITICAL for utilization", size=15, color=WHITE)
-add_bullet(
-    tb.text_frame,
-    "Disaggregation \u2192 naturally larger batches",
-    size=15,
-    color=ACCENT_GREEN,
-)
-add_para(
-    tb.text_frame,
-    "  (multiple prefill instances feed one decode)",
-    size=13,
-    color=LIGHT_GRAY,
-    space_before=Pt(2),
-)
-add_bullet(
-    tb.text_frame, "Large batches \u2192 approaches compute-bound", size=15, color=WHITE
-)
-add_bullet(
-    tb.text_frame, "Then parallelism optimization matters", size=15, color=ACCENT_ORANGE
-)
-add_para(
-    tb.text_frame,
-    "[Figure 5: latency/throughput vs parallelism]",
-    size=12,
-    color=MED_GRAY,
-    space_before=Pt(12),
-)
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Placement Algorithms", sz=34, bold=True, color=BLACK)
 
-# Key insight
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(5.8),
-    Inches(11.7),
-    Inches(1.0),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(5.9), Inches(11.3), Inches(0.8))
-set_text(
+tb = box(s, L, Inches(1.4), W, Inches(0.5))
+txt(
     tb.text_frame,
-    "Post-disaggregation: independent knobs per phase. Impossible when sharing GPUs.",
-    size=20,
-    bold=True,
-    color=ACCENT_GREEN,
-    alignment=PP_ALIGN.CENTER,
-)
-
-
-# =============================================
-# SLIDE 18: DistServe Placement Algorithms
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame, "DistServe: Placement Algorithms", size=34, bold=True, color=WHITE
-)
-
-tb = add_text_box(slide, Inches(0.8), Inches(1.3), Inches(11.7), Inches(0.6))
-set_text(
-    tb.text_frame,
-    "Given: model, workload, SLOs, cluster  \u2192  Find: parallelism + instance counts + placement  \u2192  Goal: maximize per-GPU goodput",
-    size=16,
-    color=ACCENT_TEAL,
+    "Input: model, workload, SLOs, cluster hardware.    Output: optimal parallelism + instance counts + placement.",
+    sz=15,
+    color=GRAY,
 )
 
 # Alg 1
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(2.2),
-    Inches(5.6),
-    Inches(3.0),
-    RGBColor(0x22, 0x22, 0x3A),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(2.3), Inches(5.2), Inches(2.8))
-set_text(
-    tb.text_frame,
-    "Algorithm 1: High Node-Affinity",
-    size=18,
-    bold=True,
-    color=ACCENT_TEAL,
-)
-add_para(
-    tb.text_frame, "(InfiniBand clusters)", size=14, color=MED_GRAY, space_before=Pt(2)
-)
-add_bullet(tb.text_frame, "Enumerate all parallelism configs", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Simulate each config's goodput", size=14, color=WHITE)
-add_bullet(
-    tb.text_frame, "Pick best for each phase independently", size=14, color=WHITE
-)
-add_bullet(tb.text_frame, "Calculate replication for target rate", size=14, color=WHITE)
-add_bullet(
-    tb.text_frame, "Complexity: O(NM\u00b2), < 1.3 minutes", size=14, color=ACCENT_GREEN
-)
+rect(s, L, Inches(2.2), Inches(5.2), Inches(3.0), OFF_WHITE)
+tb = box(s, Inches(1.5), Inches(2.3), Inches(4.6), Inches(2.8))
+txt(tb.text_frame, "Algorithm 1: Fast cross-node network", sz=17, bold=True, color=BLUE)
+bullet(tb.text_frame, "Enumerate parallelism configs", sz=14, color=DARK, sp=Pt(8))
+bullet(tb.text_frame, "Simulate goodput for each", sz=14, color=DARK)
+bullet(tb.text_frame, "Pick best config per phase", sz=14, color=DARK)
+bullet(tb.text_frame, "Replicate to meet target rate", sz=14, color=DARK)
+bullet(tb.text_frame, "Runs in under 1.3 minutes", sz=14, color=GREEN, bold=True)
 
 # Alg 2
-add_shape_bg(
-    slide,
-    Inches(6.9),
-    Inches(2.2),
-    Inches(5.6),
-    Inches(3.0),
-    RGBColor(0x22, 0x22, 0x3A),
-)
-tb = add_text_box(slide, Inches(7.1), Inches(2.3), Inches(5.2), Inches(2.8))
-set_text(
+rect(s, Inches(6.9), Inches(2.2), Inches(5.2), Inches(3.0), OFF_WHITE)
+tb = box(s, Inches(7.2), Inches(2.3), Inches(4.6), Inches(2.8))
+txt(tb.text_frame, "Algorithm 2: Limited bandwidth", sz=17, bold=True, color=TEAL)
+bullet(tb.text_frame, "Prefill + decode on same node", sz=14, color=DARK, sp=Pt(8))
+bullet(tb.text_frame, "Use NVLINK for KV transfer", sz=14, color=DARK)
+bullet(tb.text_frame, "Co-optimize within node budget", sz=14, color=DARK)
+bullet(tb.text_frame, "Group layers into segments", sz=14, color=DARK)
+
+rect(s, L, Inches(5.5), W, Inches(0.7), RGBColor(0xE8, 0xEE, 0xF8))
+tb = box(s, Inches(1.5), Inches(5.55), Inches(10.3), Inches(0.6))
+txt(
     tb.text_frame,
-    "Algorithm 2: Low Node-Affinity",
-    size=18,
+    "Simulator accuracy: under 2% error compared to real hardware runs",
+    sz=16,
     bold=True,
-    color=ACCENT_ORANGE,
+    color=BLUE,
+    align=PP_ALIGN.CENTER,
 )
-add_para(
+
+# ====== SLIDE 19: DISTSERVE RESULTS ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "DistServe Results", sz=34, bold=True, color=BLACK)
+
+tb = box(s, L, Inches(1.3), W, Inches(0.5))
+txt(
     tb.text_frame,
-    "(Limited cross-node bandwidth)",
-    size=14,
-    color=MED_GRAY,
-    space_before=Pt(2),
-)
-add_bullet(
-    tb.text_frame, "Constraint: prefill + decode same node", size=14, color=WHITE
-)
-add_bullet(tb.text_frame, "Use NVLINK for fast KV transfer", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Co-optimize within node GPU budget", size=14, color=WHITE)
-add_bullet(tb.text_frame, "Group layers into co-located segments", size=14, color=WHITE)
-
-# Simulator
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(5.5),
-    Inches(11.7),
-    Inches(1.3),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(5.6), Inches(11.3), Inches(1.1))
-set_text(
-    tb.text_frame,
-    "Event-Driven Simulator: < 2% error vs real system",
-    size=18,
-    bold=True,
-    color=ACCENT_GREEN,
-)
-add_para(
-    tb.text_frame,
-    "Models FLOPs + memory accesses per phase  |  Fits distributions from historical traces  |  Enables design space exploration without hardware",
-    size=14,
-    color=WHITE,
-    space_before=Pt(4),
+    "32 NVIDIA A100-80GB GPUs across 4 nodes  |  OPT models (13B, 66B, 175B)  |  vs vLLM and DeepSpeed-MII",
+    sz=14,
+    color=GRAY,
 )
 
-
-# =============================================
-# SLIDE 19: DistServe Results
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame, "DistServe: Evaluation Results", size=34, bold=True, color=WHITE
-)
-
-tb = add_text_box(slide, Inches(0.8), Inches(1.2), Inches(11.7), Inches(0.5))
-set_text(
-    tb.text_frame,
-    "Setup: 4 nodes \u00d7 8 GPUs = 32 NVIDIA A100-80GB  |  Baselines: vLLM, DeepSpeed-MII",
-    size=16,
-    color=MED_GRAY,
-)
-
-table = make_table(slide, 4, 4, Inches(1.2), Inches(2.0), Inches(10.9), Inches(2.8))
-h = ["Workload", "vs vLLM (Rate)", "vs vLLM (SLO)", "vs DeepSpeed-MII (Rate)"]
-d = [
+table = tbl(s, 4, 4, Inches(1.2), Inches(2.0), Inches(10.9), Inches(2.5))
+for i, v in enumerate(
+    ["Workload", "Rate vs vLLM", "SLO vs vLLM", "Rate vs DeepSpeed-MII"]
+):
+    cell(table, 0, i, v, sz=13, bold=True, color=WHITE, fill=RGBColor(0x55, 0x55, 0x55))
+for r, row in enumerate(
     [
-        "Chatbot (ShareGPT)",
-        "2.0\u00d7 \u2013 4.6\u00d7 higher",
-        "1.8\u00d7 \u2013 3.2\u00d7 tighter",
-        "1.6\u00d7 \u2013 7.4\u00d7 higher",
-    ],
-    [
-        "Code Completion (HumanEval)",
-        "5.7\u00d7 higher",
-        "1.4\u00d7 tighter",
-        "1.6\u00d7 higher",
-    ],
-    [
-        "Summarization (LongBench)",
-        "4.3\u00d7 higher",
-        "12.6\u00d7 tighter",
-        "1.8\u00d7 higher",
-    ],
-]
-for i, v in enumerate(h):
-    style_table_cell(
-        table.cell(0, i),
-        v,
-        size=14,
-        bold=True,
-        color=WHITE,
-        bg_color=RGBColor(0x3D, 0x0A, 0x2E),
-    )
-for r, row in enumerate(d):
-    bg = RGBColor(0x22, 0x22, 0x3A) if r % 2 == 0 else RGBColor(0x1A, 0x1A, 0x2E)
+        [
+            "Chatbot (ShareGPT)",
+            "2.0x to 4.6x higher",
+            "1.8x to 3.2x tighter",
+            "1.6x to 7.4x higher",
+        ],
+        ["Code Completion", "5.7x higher", "1.4x tighter", "1.6x higher"],
+        ["Summarization", "4.3x higher", "12.6x tighter", "1.8x higher"],
+    ]
+):
+    f = OFF_WHITE if r % 2 == 0 else WHITE
     for c, v in enumerate(row):
-        clr = (
-            ACCENT_ORANGE
-            if c == 0
-            else (ACCENT_GREEN if "12.6" in v or "5.7" in v or "7.4" in v else WHITE)
-        )
-        style_table_cell(
-            table.cell(r + 1, c),
-            v,
-            size=14,
-            color=clr,
-            bg_color=bg,
-            bold=("12.6" in v or "7.4" in v),
-        )
+        b = "12.6" in v or "7.4" in v or "5.7" in v
+        cell(table, r + 1, c, v, sz=13, color=GREEN if b else DARK, fill=f, bold=b)
 
 # Parallelism chosen
-tb = add_text_box(slide, Inches(0.8), Inches(5.0), Inches(11.7), Inches(0.5))
-set_text(
+tb = box(s, L, Inches(4.8), W, Inches(0.5))
+txt(
     tb.text_frame,
-    "Parallelism strategies chosen by DistServe (different per phase!):",
-    size=16,
+    "Parallelism strategies chosen (different per phase):",
+    sz=16,
     bold=True,
-    color=ACCENT_TEAL,
+    color=BLACK,
 )
 
-table2 = make_table(slide, 4, 3, Inches(3), Inches(5.5), Inches(7.3), Inches(1.7))
+table2 = tbl(s, 4, 3, Inches(3.5), Inches(5.3), Inches(6.3), Inches(1.6))
 for i, v in enumerate(["Model", "Prefill (TP, PP)", "Decode (TP, PP)"]):
-    style_table_cell(
-        table2.cell(0, i),
-        v,
-        size=13,
-        bold=True,
-        color=WHITE,
-        bg_color=RGBColor(0x0A, 0x3D, 0x62),
+    cell(
+        table2, 0, i, v, sz=12, bold=True, color=WHITE, fill=RGBColor(0x55, 0x55, 0x55)
     )
 for r, row in enumerate(
     [
@@ -1542,400 +955,231 @@ for r, row in enumerate(
         ["OPT-175B", "(3, 3)", "(4, 3)"],
     ]
 ):
-    bg = RGBColor(0x22, 0x22, 0x3A) if r % 2 == 0 else RGBColor(0x1A, 0x1A, 0x2E)
+    f = OFF_WHITE if r % 2 == 0 else WHITE
     for c, v in enumerate(row):
-        style_table_cell(
-            table2.cell(r + 1, c),
-            v,
-            size=13,
-            color=ACCENT_TEAL if c > 0 else WHITE,
-            bg_color=bg,
-        )
+        cell(table2, r + 1, c, v, sz=12, color=BLUE if c > 0 else DARK, fill=f)
 
+# ====== SLIDE 20: ABLATION ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
-# =============================================
-# SLIDE 20: DistServe Latency & Ablation
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "What Actually Matters?", sz=34, bold=True, color=BLACK)
 
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
+# KV overhead
+rect(s, L, Inches(1.7), Inches(5.2), Inches(2.8), RGBColor(0xEF, 0xFA, 0xF4))
+tb = box(s, Inches(1.5), Inches(1.8), Inches(4.6), Inches(2.6))
+txt(tb.text_frame, "KV-Cache Transfer Cost", sz=20, bold=True, color=GREEN)
+bullet(
+    tb.text_frame, "OPT-175B: under 0.1% of total latency", sz=15, color=DARK, sp=Pt(10)
+)
+bullet(tb.text_frame, "95% of requests: under 30ms delay", sz=15, color=DARK)
+para(
     tb.text_frame,
-    "DistServe: Latency Breakdown & Ablation",
-    size=34,
+    "Transfer is not the bottleneck.",
+    sz=16,
     bold=True,
-    color=WHITE,
+    color=GREEN,
+    sp=Pt(12),
 )
-
-# KV-cache finding
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(2.5),
-    RGBColor(0x0A, 0x3D, 0x20),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(1.6), Inches(5.2), Inches(2.3))
-set_text(tb.text_frame, "KV-Cache Transmission", size=20, bold=True, color=ACCENT_GREEN)
-add_bullet(tb.text_frame, "OPT-175B: < 0.1% of total latency", size=16, color=WHITE)
-add_bullet(tb.text_frame, "95% of requests: < 30ms delay", size=16, color=WHITE)
-add_para(
-    tb.text_frame,
-    "Transmission is negligible.",
-    size=18,
-    bold=True,
-    color=ACCENT_GREEN,
-    space_before=Pt(12),
-)
-add_para(
-    tb.text_frame,
-    "Confirms Splitwise's findings independently.",
-    size=14,
-    color=LIGHT_GRAY,
-    space_before=Pt(4),
-)
+para(tb.text_frame, "Confirms Splitwise's findings.", sz=14, color=GRAY, sp=Pt(4))
 
 # Ablation
-add_shape_bg(
-    slide,
-    Inches(6.9),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(2.5),
-    RGBColor(0x22, 0x22, 0x3A),
-)
-tb = add_text_box(slide, Inches(7.1), Inches(1.6), Inches(5.2), Inches(2.3))
-set_text(tb.text_frame, "Ablation Study", size=20, bold=True, color=ACCENT_ORANGE)
-add_bullet(tb.text_frame, "vLLM++ (+ best parallelism search)", size=16, color=WHITE)
-add_bullet(
-    tb.text_frame, "= same performance as default vLLM!", size=16, color=ACCENT_RED
-)
-add_para(
+rect(s, Inches(6.9), Inches(1.7), Inches(5.2), Inches(2.8), RGBColor(0xFD, 0xF0, 0xEF))
+tb = box(s, Inches(7.2), Inches(1.8), Inches(4.6), Inches(2.6))
+txt(tb.text_frame, "Ablation: Parallelism Search", sz=20, bold=True, color=RED_ACCENT)
+bullet(
     tb.text_frame,
-    "Interference prevents any parallelism gains when colocated.",
-    size=14,
-    color=LIGHT_GRAY,
-    space_before=Pt(8),
+    "vLLM++ (exhaustive parallelism search)",
+    sz=15,
+    color=DARK,
+    sp=Pt(10),
 )
-add_para(
+bullet(
     tb.text_frame,
-    "Only disaggregation unlocks the benefit.",
-    size=16,
+    "Same performance as default vLLM",
+    sz=15,
+    color=RED_ACCENT,
     bold=True,
-    color=ACCENT_GREEN,
-    space_before=Pt(8),
 )
-
-
-# =============================================
-# SLIDE 21: Comparison
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
+para(
     tb.text_frame,
-    "Splitwise vs DistServe: Complementary Approaches",
-    size=34,
-    bold=True,
-    color=WHITE,
+    "Interference cancels parallelism gains.",
+    sz=15,
+    color=DARK,
+    sp=Pt(12),
 )
+para(tb.text_frame, "Must disaggregate first.", sz=16, bold=True, color=BLUE, sp=Pt(4))
 
-table = make_table(slide, 9, 3, Inches(1.0), Inches(1.3), Inches(11.3), Inches(5.0))
-h = ["Dimension", "Splitwise", "DistServe"]
-d = [
-    ["Core focus", "Heterogeneous hardware", "Goodput optimization"],
-    ["Cluster type", "Mixed GPU types (H100+A100)", "Homogeneous (same GPUs)"],
-    ["Key innovation", "Right hardware per phase", "Right parallelism per phase"],
-    ["Target audience", "Cloud providers (CSPs)", "LLM service operators"],
-    ["KV-cache transfer", "Per-layer overlapped (MSCCL++)", "Pull-based on-demand"],
-    ["Formal analysis", "Characterization-driven", "Queueing theory-driven"],
-    ["Evaluation", "Real A100+H100 + simulator", "Real A100 + simulator"],
-    ["Venue", "ISCA 2024", "OSDI 2024"],
-]
-for i, v in enumerate(h):
-    style_table_cell(
-        table.cell(0, i),
+# ====== SLIDE 21: COMPARISON ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Splitwise vs DistServe", sz=34, bold=True, color=BLACK)
+
+table = tbl(s, 8, 3, Inches(1.2), Inches(1.5), Inches(10.9), Inches(4.5))
+for i, v in enumerate(["", "Splitwise", "DistServe"]):
+    cell(
+        table,
+        0,
+        i,
         v,
-        size=14,
+        sz=14,
         bold=True,
         color=WHITE,
-        bg_color=RGBColor(0x0A, 0x3D, 0x62),
+        fill=BLUE if i == 1 else (TEAL if i == 2 else RGBColor(0x55, 0x55, 0x55)),
     )
-for r, row in enumerate(d):
-    bg = RGBColor(0x22, 0x22, 0x3A) if r % 2 == 0 else RGBColor(0x1A, 0x1A, 0x2E)
-    style_table_cell(
-        table.cell(r + 1, 0), row[0], size=13, color=LIGHT_GRAY, bg_color=bg, bold=True
-    )
-    style_table_cell(
-        table.cell(r + 1, 1), row[1], size=13, color=ACCENT_TEAL, bg_color=bg
-    )
-    style_table_cell(
-        table.cell(r + 1, 2), row[2], size=13, color=ACCENT_ORANGE, bg_color=bg
-    )
+for r, row in enumerate(
+    [
+        ["Focus", "Heterogeneous hardware", "Goodput optimization"],
+        ["Cluster", "Mixed GPU types", "Homogeneous"],
+        ["Core idea", "Right hardware per phase", "Right parallelism per phase"],
+        ["Audience", "Cloud providers", "Service operators"],
+        ["KV transfer", "Per-layer overlapped", "Pull-based on-demand"],
+        ["Analysis", "Production traces", "Queueing theory"],
+        ["Venue", "ISCA 2024", "OSDI 2024"],
+    ]
+):
+    f = OFF_WHITE if r % 2 == 0 else WHITE
+    for c, v in enumerate(row):
+        cell(table, r + 1, c, v, sz=13, color=DARK, fill=f, bold=(c == 0))
 
-tb = add_text_box(slide, Inches(1.0), Inches(6.5), Inches(11.3), Inches(0.6))
-set_text(
+tb = box(s, Inches(1.2), Inches(6.2), Inches(10.9), Inches(0.6))
+txt(
     tb.text_frame,
-    'Splitwise: "Use the right hardware"  |  DistServe: "Use the right software config"  |  Best: combine both',
-    size=16,
+    "Complementary approaches. Best system would combine both.",
+    sz=18,
     bold=True,
-    color=ACCENT_GREEN,
-    alignment=PP_ALIGN.CENTER,
+    color=BLUE,
+    align=PP_ALIGN.CENTER,
 )
 
+# ====== SLIDE 22: FUTURE ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
 
-# =============================================
-# SLIDE 22: Both Papers Agree
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(tb.text_frame, "Points of Consensus", size=36, bold=True, color=WHITE)
-
-agreements = [
-    "Colocation of prefill and decoding is fundamentally flawed for SLO-sensitive workloads",
-    "KV-cache transfer overhead is negligible on modern GPU clusters (<0.1% of E2E)",
-    "Each phase benefits from different resource allocation and parallelism strategies",
-    "Disaggregation enables 2-7\u00d7 improvement in effective serving capacity",
-    "Applicable to ALL modern transformer-based LLMs (including MoE)",
-    "Long context windows make disaggregation even more valuable (growing phase asymmetry)",
-]
-tb = add_text_box(slide, Inches(1.0), Inches(1.5), Inches(11.3), Inches(5.0))
-set_text(tb.text_frame, "", size=16, color=WHITE)
-for a in agreements:
-    add_bullet(tb.text_frame, a, size=18, color=WHITE)
-
-
-# =============================================
-# SLIDE 23: Future Directions
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(
-    tb.text_frame, "Limitations & Future Directions", size=36, bold=True, color=WHITE
-)
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Limitations and Open Questions", sz=34, bold=True, color=BLACK)
 
 # Limitations
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(2.5),
-    RGBColor(0x50, 0x15, 0x15),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(1.6), Inches(5.2), Inches(2.3))
-set_text(tb.text_frame, "Shared Limitations", size=20, bold=True, color=ACCENT_RED)
-add_bullet(tb.text_frame, "Less beneficial with very few GPUs", size=15, color=WHITE)
-add_bullet(
-    tb.text_frame, "Basic fault tolerance (restart on failure)", size=15, color=WHITE
-)
-add_bullet(
-    tb.text_frame, "FCFS \u2192 convoy effect with mixed sizes", size=15, color=WHITE
-)
-add_bullet(tb.text_frame, "Batch/offline may prefer colocation", size=15, color=WHITE)
+rect(s, L, Inches(1.7), Inches(5.2), Inches(2.8), RGBColor(0xFD, 0xF0, 0xEF))
+tb = box(s, Inches(1.5), Inches(1.8), Inches(4.6), Inches(2.6))
+txt(tb.text_frame, "Shared limitations", sz=18, bold=True, color=RED_ACCENT)
+bullet(tb.text_frame, "Less beneficial with few GPUs", sz=15, color=DARK, sp=Pt(10))
+bullet(tb.text_frame, "Basic fault tolerance", sz=15, color=DARK)
+bullet(tb.text_frame, "FCFS can cause convoy effects", sz=15, color=DARK)
+bullet(tb.text_frame, "Batch workloads may prefer colocation", sz=15, color=DARK)
 
-# Future
-add_shape_bg(
-    slide,
-    Inches(6.9),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(2.5),
-    RGBColor(0x0A, 0x3D, 0x20),
-)
-tb = add_text_box(slide, Inches(7.1), Inches(1.6), Inches(5.2), Inches(2.3))
-set_text(
-    tb.text_frame, "Open Research Questions", size=20, bold=True, color=ACCENT_GREEN
-)
-add_bullet(
-    tb.text_frame, "Preemptive scheduling + disaggregation", size=15, color=WHITE
-)
-add_bullet(
-    tb.text_frame, "Heterogeneous HW + optimized placement", size=15, color=WHITE
-)
-add_bullet(tb.text_frame, "Long-context (1M+ tokens) inference", size=15, color=WHITE)
-add_bullet(tb.text_frame, "MoE expert routing interaction", size=15, color=WHITE)
+# Open
+rect(s, Inches(6.9), Inches(1.7), Inches(5.2), Inches(2.8), RGBColor(0xE8, 0xEE, 0xF8))
+tb = box(s, Inches(7.2), Inches(1.8), Inches(4.6), Inches(2.6))
+txt(tb.text_frame, "Open questions", sz=18, bold=True, color=BLUE)
+bullet(tb.text_frame, "Preemptive scheduling", sz=15, color=DARK, sp=Pt(10))
+bullet(tb.text_frame, "Combining heterogeneous HW + placement", sz=15, color=DARK)
+bullet(tb.text_frame, "Million-token contexts", sz=15, color=DARK)
+bullet(tb.text_frame, "Interaction with MoE models", sz=15, color=DARK)
 
-# Adoption bar
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(4.4),
-    Inches(11.7),
-    Inches(1.2),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(4.5), Inches(11.3), Inches(1.0))
-set_text(tb.text_frame, "Industry Adoption", size=20, bold=True, color=ACCENT_TEAL)
-add_para(
+rect(s, L, Inches(4.9), W, Inches(1.0), OFF_WHITE)
+tb = box(s, Inches(1.5), Inches(5.0), Inches(10.3), Inches(0.8))
+txt(
     tb.text_frame,
-    "Already adopted by: SGLang, vLLM, Mooncake  |  Follow-up: PolyServe, DuetServe, NVIDIA Dynamo",
-    size=16,
-    color=WHITE,
-    space_before=Pt(4),
-)
-add_para(
-    tb.text_frame,
-    "Phase disaggregation is becoming the standard architecture for LLM serving.",
-    size=16,
+    "Already adopted by SGLang, vLLM, and Mooncake.",
+    sz=17,
     bold=True,
-    color=ACCENT_GREEN,
-    space_before=Pt(4),
+    color=BLACK,
+    align=PP_ALIGN.CENTER,
 )
-
-
-# =============================================
-# SLIDE 24: Summary
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-
-tb = add_text_box(slide, Inches(0.8), Inches(0.4), Inches(11.7), Inches(0.8))
-set_text(tb.text_frame, "Summary", size=40, bold=True, color=WHITE)
-
-# Splitwise summary
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(2.5),
-    RGBColor(0x15, 0x50, 0x70),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(1.6), Inches(5.2), Inches(2.3))
-set_text(tb.text_frame, "Splitwise (ISCA 2024)", size=22, bold=True, color=ACCENT_TEAL)
-add_bullet(tb.text_frame, "7 insights from production workloads", size=15, color=WHITE)
-add_bullet(tb.text_frame, "Heterogeneous hardware per phase", size=15, color=WHITE)
-add_bullet(
-    tb.text_frame, "1.4\u00d7 throughput at 20% lower cost", size=15, color=ACCENT_GREEN
-)
-add_bullet(
-    tb.text_frame, "or 2.35\u00d7 throughput, same power", size=15, color=ACCENT_GREEN
-)
-
-# DistServe summary
-add_shape_bg(
-    slide,
-    Inches(6.9),
-    Inches(1.5),
-    Inches(5.6),
-    Inches(2.5),
-    RGBColor(0x50, 0x15, 0x40),
-)
-tb = add_text_box(slide, Inches(7.1), Inches(1.6), Inches(5.2), Inches(2.3))
-set_text(
-    tb.text_frame, "DistServe (OSDI 2024)", size=22, bold=True, color=ACCENT_ORANGE
-)
-add_bullet(tb.text_frame, "Formalized goodput optimization", size=15, color=WHITE)
-add_bullet(tb.text_frame, "Automatic parallelism + placement", size=15, color=WHITE)
-add_bullet(
-    tb.text_frame, "Up to 7.4\u00d7 higher request rate", size=15, color=ACCENT_GREEN
-)
-add_bullet(tb.text_frame, "Up to 12.6\u00d7 tighter SLO", size=15, color=ACCENT_GREEN)
-
-# Big picture
-add_shape_bg(
-    slide,
-    Inches(0.8),
-    Inches(4.4),
-    Inches(11.7),
-    Inches(1.5),
-    RGBColor(0x0A, 0x3D, 0x62),
-)
-tb = add_text_box(slide, Inches(1.0), Inches(4.5), Inches(11.3), Inches(1.3))
-set_text(
+para(
     tb.text_frame,
-    "The Big Picture",
-    size=22,
+    "Phase disaggregation is becoming the standard for production LLM serving.",
+    sz=16,
+    color=GRAY,
+    align=PP_ALIGN.CENTER,
+    sp=Pt(4),
+)
+
+# ====== SLIDE 23: SUMMARY ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "Summary", sz=36, bold=True, color=BLACK)
+
+# Splitwise
+rect(s, L, Inches(1.7), Inches(5.2), Inches(2.5), RGBColor(0xE8, 0xEE, 0xF8))
+tb = box(s, Inches(1.5), Inches(1.8), Inches(4.6), Inches(2.3))
+txt(tb.text_frame, "Splitwise (ISCA 2024)", sz=20, bold=True, color=BLUE)
+bullet(
+    tb.text_frame, "Production workload characterization", sz=15, color=DARK, sp=Pt(8)
+)
+bullet(tb.text_frame, "Heterogeneous hardware per phase", sz=15, color=DARK)
+bullet(
+    tb.text_frame, "1.4x throughput at 20% lower cost", sz=15, color=GREEN, bold=True
+)
+bullet(tb.text_frame, "or 2.35x throughput, same budget", sz=15, color=GREEN, bold=True)
+
+# DistServe
+rect(s, Inches(6.9), Inches(1.7), Inches(5.2), Inches(2.5), RGBColor(0xE8, 0xF5, 0xF0))
+tb = box(s, Inches(7.2), Inches(1.8), Inches(4.6), Inches(2.3))
+txt(tb.text_frame, "DistServe (OSDI 2024)", sz=20, bold=True, color=TEAL)
+bullet(tb.text_frame, "Goodput-optimal placement", sz=15, color=DARK, sp=Pt(8))
+bullet(tb.text_frame, "Automatic parallelism optimization", sz=15, color=DARK)
+bullet(tb.text_frame, "Up to 7.4x higher request rate", sz=15, color=GREEN, bold=True)
+bullet(tb.text_frame, "Up to 12.6x tighter SLO", sz=15, color=GREEN, bold=True)
+
+rect(s, L, Inches(4.6), W, Inches(1.2), OFF_WHITE)
+tb = box(s, Inches(1.5), Inches(4.7), Inches(10.3), Inches(1.0))
+txt(
+    tb.text_frame,
+    "Prefill and decoding are different workloads.",
+    sz=20,
+    color=BLACK,
+    align=PP_ALIGN.CENTER,
+)
+para(
+    tb.text_frame,
+    "Treating them as one wastes hardware, power, and money.",
+    sz=20,
     bold=True,
-    color=WHITE,
-    alignment=PP_ALIGN.CENTER,
+    color=BLUE,
+    align=PP_ALIGN.CENTER,
+    sp=Pt(4),
 )
-add_para(
+
+# ====== SLIDE 24: THANK YOU ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, NAVY)
+rect(s, Inches(0), Inches(3.2), Inches(13.333), Pt(2), BLUE)
+
+tb = box(s, L, Inches(1.8), W, Inches(1))
+txt(tb.text_frame, "Thank You", sz=48, bold=True, color=WHITE)
+
+tb = box(s, L, Inches(3.6), W, Inches(0.7))
+txt(tb.text_frame, "Questions?", sz=32, color=RGBColor(0x88, 0xAA, 0xDD))
+
+tb = box(s, L, Inches(4.8), W, Inches(2))
+txt(tb.text_frame, "Splitwise: arXiv:2311.18677 (ISCA 2024)", sz=16, color=LIGHT_GRAY)
+para(
     tb.text_frame,
-    "Prefill and decoding are fundamentally different workloads.",
-    size=20,
-    color=WHITE,
-    alignment=PP_ALIGN.CENTER,
-    space_before=Pt(8),
-)
-add_para(
-    tb.text_frame,
-    "Treating them as one wastes hardware, power, and money. Disaggregation is the right abstraction.",
-    size=20,
-    bold=True,
-    color=ACCENT_GREEN,
-    alignment=PP_ALIGN.CENTER,
-    space_before=Pt(4),
-)
-
-
-# =============================================
-# SLIDE 25: Thank You
-# =============================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_BG)
-add_shape_bg(slide, Inches(0), Inches(3.0), Inches(13.333), Pt(4), ACCENT_TEAL)
-
-tb = add_text_box(slide, Inches(1), Inches(1.5), Inches(11.333), Inches(1.5))
-set_text(
-    tb.text_frame,
-    "Thank You",
-    size=52,
-    bold=True,
-    color=WHITE,
-    alignment=PP_ALIGN.CENTER,
-)
-
-tb2 = add_text_box(slide, Inches(1), Inches(3.5), Inches(11.333), Inches(0.8))
-set_text(
-    tb2.text_frame, "Questions?", size=36, color=ACCENT_TEAL, alignment=PP_ALIGN.CENTER
-)
-
-tb3 = add_text_box(slide, Inches(2), Inches(4.8), Inches(9.333), Inches(2.5))
-set_text(tb3.text_frame, "Papers", size=18, bold=True, color=ACCENT_ORANGE)
-add_para(
-    tb3.text_frame,
-    "Splitwise: arXiv:2311.18677 (ISCA 2024)",
-    size=16,
-    color=LIGHT_GRAY,
-    space_before=Pt(4),
-)
-add_para(
-    tb3.text_frame,
     "DistServe: arXiv:2401.09670 (OSDI 2024)",
-    size=16,
+    sz=16,
     color=LIGHT_GRAY,
-    space_before=Pt(4),
+    sp=Pt(4),
 )
-add_para(tb3.text_frame, "", size=12, color=WHITE, space_before=Pt(16))
-add_para(
-    tb3.text_frame,
+para(tb.text_frame, "", sz=10, color=LIGHT_GRAY, sp=Pt(16))
+para(
+    tb.text_frame,
     "Berat Celik  &  Jiayang (Ethan) Chen",
-    size=20,
+    sz=20,
     bold=True,
     color=WHITE,
-    space_before=Pt(4),
+    sp=Pt(4),
 )
-add_para(
-    tb3.text_frame,
-    "ECE 5545: ML Hardware & Systems  |  Spring 2026",
-    size=16,
-    color=MED_GRAY,
-    space_before=Pt(4),
-)
+para(tb.text_frame, "ECE 5545  |  Spring 2026", sz=16, color=LIGHT_GRAY, sp=Pt(4))
 
 
-# Save
 prs.save(
     "/Users/beratcelik/Desktop/hml presentation/presentation/Phase_Disaggregation_LLM_Inference.pptx"
 )
-print("DONE: 25 slides created.")
+print("DONE: 24 slides, clean minimalist design.")
