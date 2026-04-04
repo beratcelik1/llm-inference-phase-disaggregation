@@ -1,9 +1,11 @@
 """Clean minimalist PPTX presentation."""
 
+from pathlib import Path
+
 from pptx import Presentation
-from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
+from pptx.util import Inches, Pt
 
 prs = Presentation()
 prs.slide_width = Inches(13.333)
@@ -50,7 +52,7 @@ def txt(tf, text, sz=18, bold=False, color=DARK, align=PP_ALIGN.LEFT):
     p.font.size = Pt(sz)
     p.font.bold = bold
     p.font.color.rgb = color
-    p.font.name = "Calibri"
+    p.font.name = "Palatino Linotype"
     p.alignment = align
     return p
 
@@ -61,7 +63,7 @@ def para(tf, text, sz=18, bold=False, color=DARK, align=PP_ALIGN.LEFT, sp=Pt(6))
     p.font.size = Pt(sz)
     p.font.bold = bold
     p.font.color.rgb = color
-    p.font.name = "Calibri"
+    p.font.name = "Palatino Linotype"
     p.alignment = align
     p.space_before = sp
     return p
@@ -73,7 +75,7 @@ def bullet(tf, text, sz=16, color=DARK, level=0, bold=False, sp=Pt(6)):
     p.font.size = Pt(sz)
     p.font.color.rgb = color
     p.font.bold = bold
-    p.font.name = "Calibri"
+    p.font.name = "Palatino Linotype"
     p.level = level
     p.space_before = sp
     return p
@@ -91,7 +93,7 @@ def cell(table, r, c, text, sz=14, bold=False, color=DARK, fill=None):
     p.font.size = Pt(sz)
     p.font.bold = bold
     p.font.color.rgb = color
-    p.font.name = "Calibri"
+    p.font.name = "Palatino Linotype"
     if fill:
         cl.fill.solid()
         cl.fill.fore_color.rgb = fill
@@ -101,6 +103,26 @@ L = Inches(1.2)  # left margin
 T_TITLE = Inches(0.5)
 T_BODY = Inches(1.6)
 W = Inches(11)
+
+FIGURES = Path(__file__).parent / "figures"
+
+
+def fig_slide(title: str, img_name: str, caption: str = "") -> None:
+    """Add a slide showing a paper figure."""
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    bg(s, WHITE)
+    tb = box(s, L, Inches(0.3), W, Inches(0.6))
+    txt(tb.text_frame, title, sz=24, bold=True, color=BLACK)
+    img_path = FIGURES / img_name
+    if img_path.exists():
+        pic = s.shapes.add_picture(
+            str(img_path), Inches(1.9), Inches(1.2), width=Inches(9.5)
+        )
+        if caption:
+            cy = pic.top + pic.height + Inches(0.15)
+            tb = box(s, Inches(1.9), cy, Inches(9.5), Inches(0.4))
+            txt(tb.text_frame, caption, sz=11, color=LIGHT_GRAY, align=PP_ALIGN.CENTER)
+
 
 # ====== SLIDE 1: TITLE ======
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -359,6 +381,12 @@ txt(
     align=PP_ALIGN.CENTER,
 )
 
+fig_slide(
+    "Prefill-Decode Interference",
+    "ds_fig2_interference.png",
+    "DistServe Figure 2: Decoding latency degrades up to 3-5x when colocated with prefill",
+)
+
 # ====== SLIDE 7: SPLITWISE DIVIDER ======
 s = prs.slides.add_slide(prs.slide_layouts[6])
 bg(s, NAVY)
@@ -437,6 +465,12 @@ for i, (num, title, detail) in enumerate(
 
 tb = box(s, L, Inches(6.0), W, Inches(0.8))
 txt(tb.text_frame, "Splitwise Figure 3-4, Table IV", sz=13, color=LIGHT_GRAY)
+
+fig_slide(
+    "Azure Production Trace Distributions",
+    "sw_fig3_distributions.png",
+    "Splitwise Figure 3: Input/output token length distributions from two Azure LLM services",
+)
 
 # ====== SLIDE 9: HARDWARE INSIGHT ======
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -549,6 +583,12 @@ para(
     sz=14,
     color=GRAY,
     sp=Pt(4),
+)
+
+fig_slide(
+    "Splitwise System Architecture",
+    "sw_fig10_architecture.png",
+    "Splitwise Figure 10: Three-pool architecture with cluster-level scheduling",
 )
 
 # ====== SLIDE 11: KV-CACHE TRANSFER ======
@@ -666,6 +706,12 @@ txt(
     "Robust to workload changes (7% drop with mismatched workload) and model changes.",
     sz=14,
     color=GRAY,
+)
+
+fig_slide(
+    "Splitwise Throughput-Latency Results",
+    "sw_fig16_latency.png",
+    "Splitwise Figure 16: Throughput vs latency across cluster configurations",
 )
 
 # ====== SLIDE 14: SPLITWISE SUMMARY ======
@@ -851,6 +897,12 @@ txt(
     align=PP_ALIGN.CENTER,
 )
 
+fig_slide(
+    "DistServe System Architecture",
+    "ds_fig6_architecture.png",
+    "DistServe Figure 6: Disaggregated prefill and decoding with pull-based KV-cache transfer",
+)
+
 # ====== SLIDE 18: PLACEMENT ======
 s = prs.slides.add_slide(prs.slide_layouts[6])
 bg(s, WHITE)
@@ -959,6 +1011,18 @@ for r, row in enumerate(
     for c, v in enumerate(row):
         cell(table2, r + 1, c, v, sz=12, color=BLUE if c > 0 else DARK, fill=f)
 
+fig_slide(
+    "DistServe Evaluation: Chatbot and Workloads",
+    "ds_fig8_chatbot.png",
+    "DistServe Figure 8: Goodput comparison on ShareGPT workload across OPT model sizes",
+)
+
+fig_slide(
+    "DistServe Evaluation: Code and Summarization",
+    "ds_fig9_code_summ.png",
+    "DistServe Figure 9: HumanEval (code completion) and LongBench (summarization) results",
+)
+
 # ====== SLIDE 20: ABLATION ======
 s = prs.slides.add_slide(prs.slide_layouts[6])
 bg(s, WHITE)
@@ -1010,6 +1074,12 @@ para(
     sp=Pt(12),
 )
 para(tb.text_frame, "Must disaggregate first.", sz=16, bold=True, color=BLUE, sp=Pt(4))
+
+fig_slide(
+    "Per-Request Latency Distribution",
+    "ds_fig10_latency.png",
+    "DistServe Figure 10: CDF of TTFT and TPOT, disaggregated vs colocated serving",
+)
 
 # ====== SLIDE 21: COMPARISON ======
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -1182,4 +1252,4 @@ para(tb.text_frame, "ECE 5545  |  Spring 2026", sz=16, color=LIGHT_GRAY, sp=Pt(4
 prs.save(
     "/Users/beratcelik/Desktop/hml presentation/presentation/Phase_Disaggregation_LLM_Inference.pptx"
 )
-print("DONE: 24 slides, clean minimalist design.")
+print("DONE: 32 slides with paper figures, Palatino Linotype font.")
