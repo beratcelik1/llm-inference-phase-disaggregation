@@ -5,17 +5,11 @@
 
 ## SLIDE 1: Title (20 sec)
 
-Hey everyone, I'm Berat. Me and Ethan are going to talk about phase disaggregation in LLM inference. We're covering two papers, Splitwise and DistServe. I'll do background and Splitwise, then Ethan takes over for DistServe and we wrap up together.
+Hey everyone, I'm Berat and this is Ethan. We're presenting on phase disaggregation in LLM inference, covering two papers: Splitwise and DistServe. I'll start with how inference works, why the current approach breaks down, and how Splitwise solves it. Then Ethan takes DistServe and we'll compare.
 
 ---
 
-## SLIDE 2: Outline (10 sec)
-
-Here's the plan. I'll explain how LLM inference works, why the current approach has problems, then get into Splitwise. Ethan picks it up with DistServe.
-
----
-
-## SLIDE 3: How LLM Inference Works (1.5 min)
+## SLIDE 2: How LLM Inference Works (1.5 min)
 
 When you send a query to something like ChatGPT, the model goes through two separate phases.
 
@@ -27,7 +21,7 @@ Quick example: you ask "Is tomato a fruit?", prefill crunches all 5 tokens at on
 
 ---
 
-## SLIDE 4: Phase Characteristics (1.5 min)
+## SLIDE 3: Phase Characteristics (1.5 min)
 
 Here's what makes this interesting from a systems perspective. These two phases look completely different computationally.
 
@@ -41,7 +35,7 @@ Two phases, different compute profiles, different bottlenecks, different metrics
 
 ---
 
-## SLIDE 5: Performance Metrics (30 sec)
+## SLIDE 4: Performance Metrics (30 sec)
 
 Quick rundown on the key metrics. TTFT is prefill latency. TBT is streaming speed, needs to be faster than reading speed, about 250 words per minute.
 
@@ -49,7 +43,7 @@ The important one for this talk is goodput: the maximum request rate you can sus
 
 ---
 
-## SLIDE 6: The Problem (1 min)
+## SLIDE 5: The Problem (1 min)
 
 So why is this a problem? Every serving system runs both phases on the same GPU, and that causes three issues.
 
@@ -63,17 +57,17 @@ Both papers arrived at the same conclusion: put them on separate hardware.
 
 ---
 
-## SLIDE 7: Interference Figure (15 sec)
+## SLIDE 6: Interference Figure (15 sec)
 
 Here's the actual data. Left panel, short inputs: one prefill job almost triples decode latency. Right panel, 1024 tokens: even worse. That gap is why colocation doesn't work.
 
 ---
 
-## SLIDE 8: Splitwise Section Title (transition)
+## SLIDE 7: Splitwise Section Title (transition)
 
 ---
 
-## SLIDE 9: Production Trace Insights (1 min)
+## SLIDE 8: Production Trace Insights (1 min)
 
 What makes Splitwise unique is real production data from two Azure LLM services at Microsoft: a coding assistant and a conversation service.
 
@@ -83,13 +77,13 @@ With mixed continuous batching, the machines spend 60 to 70 percent of their tim
 
 ---
 
-## SLIDE 10: Trace Distribution Figure (10 sec)
+## SLIDE 9: Trace Distribution Figure (10 sec)
 
 Here are the actual distributions. Coding has massive prompts but tiny outputs. Conversation is more spread out on both sides. These shapes drove the Splitwise design.
 
 ---
 
-## SLIDE 11: Hardware Insight (1 min)
+## SLIDE 10: Hardware Insight (1 min)
 
 Here's where Splitwise gets really interesting. They compared A100 and H100 for each phase separately.
 
@@ -99,7 +93,7 @@ This is the main insight: you don't need expensive GPUs for token generation. An
 
 ---
 
-## SLIDE 12: Splitwise Architecture (45 sec)
+## SLIDE 11: Splitwise Architecture (45 sec)
 
 Splitwise has three pools of machines. The Prompt Pool runs compute-heavy GPUs doing prefill. The Token Pool runs cheaper GPUs doing generation. The Mixed Pool is flexible, it handles overflow from either side.
 
@@ -107,13 +101,13 @@ A cluster-level scheduler routes requests, assigning a prompt and token machine 
 
 ---
 
-## SLIDE 13: Architecture Figure (10 sec)
+## SLIDE 12: Architecture Figure (10 sec)
 
 Here's the paper's diagram. Cluster-level scheduler on top, prompt pool left, token pool right, InfiniBand for KV-cache transfer, and the mixed pool for overflow.
 
 ---
 
-## SLIDE 14: KV-Cache Transfer (45 sec)
+## SLIDE 13: KV-Cache Transfer (45 sec)
 
 The obvious question: doesn't transferring the KV-cache between machines add overhead?
 
@@ -125,25 +119,25 @@ End result: 5 to 8 milliseconds of non-overlapped transfer, 0.8% of end-to-end l
 
 ---
 
-## SLIDE 15: Cluster Configurations (20 sec)
+## SLIDE 14: Cluster Configurations (20 sec)
 
 They evaluate four configurations: all A100s, all H100s, H100 prompt with A100 token, and all H100s with token machines power-capped. An open-source simulator searches the design space.
 
 ---
 
-## SLIDE 16: Splitwise Results (20 sec)
+## SLIDE 15: Splitwise Results (20 sec)
 
 Splitwise-AA gets 2.15x more throughput than baseline A100. The headline: up to 1.4x throughput at 20% lower cost, or 2.35x throughput at the same budget. HHcap matches baseline at 25% less power. And it's robust, only 7% throughput drop with the wrong workload.
 
 ---
 
-## SLIDE 17: Results Figure (10 sec)
+## SLIDE 16: Results Figure (10 sec)
 
 These plots show latency across request rates. Dashed red lines are SLO targets. Splitwise designs stay under those lines at much higher rates than the baselines.
 
 ---
 
-## SLIDE 18: Splitwise Summary (20 sec)
+## SLIDE 17: Splitwise Summary (20 sec)
 
 To recap: real production traces revealed two fundamentally different workloads. Three-pool architecture with optimized KV-cache transfer. Cheaper GPUs work fine for token generation. Matching hardware to each phase saves money and power.
 

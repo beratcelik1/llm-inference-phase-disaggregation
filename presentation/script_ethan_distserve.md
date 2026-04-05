@@ -4,13 +4,13 @@
 
 ---
 
-## SLIDE 19: DistServe Section Title (10 sec)
+## SLIDE 18: DistServe Section Title (10 sec)
 
 Thanks Berat. Now I'll go through DistServe, which tackles the same problem from a different angle.
 
 ---
 
-## SLIDE 20: Goodput (1 min)
+## SLIDE 19: Goodput (1 min)
 
 DistServe formalizes what we're optimizing for with goodput: the max request rate while keeping 90% of users within latency targets. Not just raw throughput, but throughput that actually meets SLOs.
 
@@ -20,7 +20,7 @@ Now the common response to interference is chunked prefill from the Sarathi pape
 
 ---
 
-## SLIDE 21: Tradeoff Analysis (1.5 min)
+## SLIDE 20: Tradeoff Analysis (1.5 min)
 
 What's really cool about DistServe is the formal analysis after disaggregation. Each phase becomes its own optimization problem.
 
@@ -32,13 +32,13 @@ The key point: after disaggregation, each phase has independent knobs. Different
 
 ---
 
-## SLIDE 22: DistServe Architecture Figure (10 sec)
+## SLIDE 21: DistServe Architecture Figure (10 sec)
 
 Here's the system. Controller dispatches to prefill instances, KV-cache gets pulled by decode instances. Each manages its own GPUs with a parallel runtime.
 
 ---
 
-## SLIDE 23: Placement Algorithms (1.5 min)
+## SLIDE 22: Placement Algorithms (1.5 min)
 
 This is the core contribution. Given a model, workload, SLOs, and cluster hardware, the algorithm automatically finds the best setup.
 
@@ -52,7 +52,7 @@ Online optimizations handle the rest: batching requests to hit GPU saturation fo
 
 ---
 
-## SLIDE 24: DistServe Results (1 min)
+## SLIDE 23: DistServe Results (1 min)
 
 Evaluated on 32 A100 GPUs across 4 nodes, OPT models from 13B to 175B.
 
@@ -64,19 +64,19 @@ Summarization on LongBench: 4.3x higher rate and 12.6x tighter SLO. Long inputs 
 
 ---
 
-## SLIDE 25: Chatbot Results Figure (15 sec)
+## SLIDE 24: Chatbot Results Figure (15 sec)
 
 Top row: SLO attainment versus request rate. DistServe in blue stays high much longer. Bottom row: under tighter SLOs, the baselines fall apart while DistServe holds.
 
 ---
 
-## SLIDE 26: Code and Summarization Figure (10 sec)
+## SLIDE 25: Code and Summarization Figure (10 sec)
 
 Same pattern. Code completion shows a big gap from eliminating prefill interference. Summarization is even more dramatic with long inputs.
 
 ---
 
-## SLIDE 27: Ablation (45 sec)
+## SLIDE 26: Ablation (45 sec)
 
 Two key findings. First, KV-cache transfer on OPT-175B is less than 0.1% of total latency. 95% of requests under 30ms delay. Transfer is not the bottleneck.
 
@@ -86,13 +86,13 @@ And the configs DistServe chose are telling: OPT-66B gets tensor parallel 4 for 
 
 ---
 
-## SLIDE 28: Latency Breakdown Figure (10 sec)
+## SLIDE 27: Latency Breakdown Figure (10 sec)
 
 The bar chart shows transmission is that tiny red sliver, under 0.1%. The CDF confirms 95% of requests see under 30ms transfer delay.
 
 ---
 
-## SLIDE 29: Comparison (45 sec)
+## SLIDE 28: Comparison (45 sec)
 
 Both papers arrived at the same conclusion independently: prefill and decoding should not share hardware.
 
@@ -104,7 +104,7 @@ The ideal system would combine both: heterogeneous hardware with automated place
 
 ---
 
-## SLIDE 30: Limitations and Open Questions (30 sec)
+## SLIDE 29: Limitations and Open Questions (30 sec)
 
 Both agree: colocation is wrong for latency-sensitive workloads, transfer overhead is negligible, each phase wants different resources.
 
@@ -112,7 +112,7 @@ Open questions: preemptive scheduling, heterogeneous hardware with automated pla
 
 ---
 
-## SLIDE 31: Summary (20 sec)
+## SLIDE 30: Summary (20 sec)
 
 Splitwise: 1.4x throughput at 20% lower cost, or 2.35x at the same budget. DistServe: up to 7.4x higher request rates.
 
@@ -120,7 +120,7 @@ Prefill and decoding are different workloads. Treating them as one wastes resour
 
 ---
 
-## SLIDES 32-33: References & Thank You
+## SLIDES 31-32: References & Thank You
 
 Thanks, we're happy to take questions.
 

@@ -165,35 +165,7 @@ para(
 )
 para(tb.text_frame, "Spring 2026", sz=16, color=LIGHT_GRAY, sp=Pt(8))
 
-# ====== SLIDE 2: OUTLINE ======
-s = prs.slides.add_slide(prs.slide_layouts[6])
-bg(s, WHITE)
-
-tb = box(s, L, T_TITLE, W, Inches(0.7))
-txt(tb.text_frame, "Outline", sz=34, bold=True, color=BLACK)
-
-# Part 1
-tb = box(s, L, Inches(1.8), Inches(5.2), Inches(4))
-txt(tb.text_frame, "Part 1: Berat", sz=22, bold=True, color=BLUE)
-bullet(tb.text_frame, "LLM inference background", sz=17, color=DARK, sp=Pt(14))
-bullet(tb.text_frame, "The two phases and why they differ", sz=17, color=DARK)
-bullet(tb.text_frame, "The colocation problem", sz=17, color=DARK)
-bullet(tb.text_frame, "Splitwise: production insights", sz=17, color=DARK)
-bullet(tb.text_frame, "Architecture and KV-cache transfer", sz=17, color=DARK)
-bullet(tb.text_frame, "Heterogeneous cluster designs", sz=17, color=DARK)
-bullet(tb.text_frame, "Evaluation", sz=17, color=DARK)
-
-# Part 2
-tb = box(s, Inches(7), Inches(1.8), Inches(5.2), Inches(4))
-txt(tb.text_frame, "Part 2: Ethan", sz=22, bold=True, color=TEAL)
-bullet(tb.text_frame, "DistServe: goodput optimization", sz=17, color=DARK, sp=Pt(14))
-bullet(tb.text_frame, "Formal tradeoff analysis", sz=17, color=DARK)
-bullet(tb.text_frame, "Placement algorithms", sz=17, color=DARK)
-bullet(tb.text_frame, "Online scheduling", sz=17, color=DARK)
-bullet(tb.text_frame, "Evaluation", sz=17, color=DARK)
-bullet(tb.text_frame, "Comparison and future directions", sz=17, color=DARK)
-
-# ====== SLIDE 3: HOW LLM INFERENCE WORKS ======
+# ====== SLIDE 2: HOW LLM INFERENCE WORKS ======
 s = prs.slides.add_slide(prs.slide_layouts[6])
 bg(s, WHITE)
 
@@ -1281,7 +1253,7 @@ para(tb.text_frame, "ECE 5545  |  Spring 2026", sz=16, color=LIGHT_GRAY, sp=Pt(4
 
 
 # ====== ADD SLIDE NUMBERS ======
-DARK_SLIDES = {1, 8, 19, 33}
+DARK_SLIDES = {1, 7, 18, 32}
 for i, slide in enumerate(prs.slides):
     num = i + 1
     if num == 1:
@@ -1293,4 +1265,4 @@ for i, slide in enumerate(prs.slides):
 prs.save(
     "/Users/beratcelik/Desktop/hml presentation/presentation/Phase_Disaggregation_LLM_Inference.pptx"
 )
-print("DONE: 33 slides with paper figures, references, Palatino Linotype font.")
+print(f"DONE: {len(prs.slides)} slides.")
