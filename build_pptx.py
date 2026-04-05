@@ -384,7 +384,7 @@ txt(
 fig_slide(
     "Prefill-Decode Interference",
     "ds_fig2_interference.png",
-    "DistServe Figure 2: Decoding latency degrades up to 3-5x when colocated with prefill",
+    "Source: Zhong et al., OSDI 2024, Figure 2",
 )
 
 # ====== SLIDE 7: SPLITWISE DIVIDER ======
@@ -469,7 +469,7 @@ txt(tb.text_frame, "Splitwise Figure 3-4, Table IV", sz=13, color=LIGHT_GRAY)
 fig_slide(
     "Azure Production Trace Distributions",
     "sw_fig3_distributions.png",
-    "Splitwise Figure 3: Input/output token length distributions from two Azure LLM services",
+    "Source: Patel et al., ISCA 2024, Figure 3",
 )
 
 # ====== SLIDE 9: HARDWARE INSIGHT ======
@@ -588,7 +588,7 @@ para(
 fig_slide(
     "Splitwise System Architecture",
     "sw_fig10_architecture.png",
-    "Splitwise Figure 10: Three-pool architecture with cluster-level scheduling",
+    "Source: Patel et al., ISCA 2024, Figure 10",
 )
 
 # ====== SLIDE 11: KV-CACHE TRANSFER ======
@@ -711,7 +711,7 @@ txt(
 fig_slide(
     "Splitwise Throughput-Latency Results",
     "sw_fig16_latency.png",
-    "Splitwise Figure 16: Throughput vs latency across cluster configurations",
+    "Source: Patel et al., ISCA 2024, Figure 16",
 )
 
 # ====== SLIDE 14: SPLITWISE SUMMARY ======
@@ -900,7 +900,7 @@ txt(
 fig_slide(
     "DistServe System Architecture",
     "ds_fig6_architecture.png",
-    "DistServe Figure 6: Disaggregated prefill and decoding with pull-based KV-cache transfer",
+    "Source: Zhong et al., OSDI 2024, Figure 6",
 )
 
 # ====== SLIDE 18: PLACEMENT ======
@@ -1014,13 +1014,13 @@ for r, row in enumerate(
 fig_slide(
     "DistServe Evaluation: Chatbot and Workloads",
     "ds_fig8_chatbot.png",
-    "DistServe Figure 8: Goodput comparison on ShareGPT workload across OPT model sizes",
+    "Source: Zhong et al., OSDI 2024, Figure 8",
 )
 
 fig_slide(
     "DistServe Evaluation: Code and Summarization",
     "ds_fig9_code_summ.png",
-    "DistServe Figure 9: HumanEval (code completion) and LongBench (summarization) results",
+    "Source: Zhong et al., OSDI 2024, Figure 9",
 )
 
 # ====== SLIDE 20: ABLATION ======
@@ -1078,7 +1078,7 @@ para(tb.text_frame, "Must disaggregate first.", sz=16, bold=True, color=BLUE, sp
 fig_slide(
     "Per-Request Latency Distribution",
     "ds_fig10_latency.png",
-    "DistServe Figure 10: CDF of TTFT and TPOT, disaggregated vs colocated serving",
+    "Source: Zhong et al., OSDI 2024, Figure 10",
 )
 
 # ====== SLIDE 21: COMPARISON ======
@@ -1217,6 +1217,37 @@ para(
     sp=Pt(4),
 )
 
+# ====== REFERENCES SLIDE ======
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s, WHITE)
+
+tb = box(s, L, T_TITLE, W, Inches(0.7))
+txt(tb.text_frame, "References", sz=34, bold=True, color=BLACK)
+
+refs = [
+    "[1]  P. Patel, E. Choukse, C. Zhang, A. Shah, I. Goiri, S. Maleki, R. Bianchini.",
+    '     "Splitwise: Efficient Generative LLM Inference Using Phase Splitting."',
+    "     ISCA 2024. arXiv:2311.18677",
+    "",
+    "[2]  Y. Zhong, S. Liu, J. Chen, J. Hu, Y. Zhu, X. Liu, X. Jin, H. Zhang.",
+    '     "DistServe: Disaggregating Prefill and Decoding for Goodput-optimized',
+    '     Large Language Model Serving."  OSDI 2024. arXiv:2401.09670',
+    "",
+    "[3]  A. Agrawal et al. Sarathi: Efficient LLM Inference by Piggybacking Decodes",
+    "     with Chunked Prefills. arXiv:2308.16369, 2023.",
+    "",
+    "[4]  W. Kwon et al. Efficient Memory Management for Large Language Model Serving",
+    "     with PagedAttention (vLLM). SOSP 2023.",
+    "",
+    "[5]  Y. Sheng et al. FlexGen: High-Throughput Generative Inference of Large Language",
+    "     Models with a Single GPU. ICML 2023.",
+]
+
+tb = box(s, L, Inches(1.5), Inches(10.5), Inches(5.5))
+txt(tb.text_frame, refs[0], sz=13, color=DARK)
+for line in refs[1:]:
+    para(tb.text_frame, line, sz=13, color=DARK if line else DARK, sp=Pt(1))
+
 # ====== SLIDE 24: THANK YOU ======
 s = prs.slides.add_slide(prs.slide_layouts[6])
 bg(s, NAVY)
@@ -1252,4 +1283,4 @@ para(tb.text_frame, "ECE 5545  |  Spring 2026", sz=16, color=LIGHT_GRAY, sp=Pt(4
 prs.save(
     "/Users/beratcelik/Desktop/hml presentation/presentation/Phase_Disaggregation_LLM_Inference.pptx"
 )
-print("DONE: 32 slides with paper figures, Palatino Linotype font.")
+print("DONE: 33 slides with paper figures, references, Palatino Linotype font.")
