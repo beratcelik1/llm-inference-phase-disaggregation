@@ -1280,6 +1280,16 @@ para(
 para(tb.text_frame, "ECE 5545  |  Spring 2026", sz=16, color=LIGHT_GRAY, sp=Pt(4))
 
 
+# ====== ADD SLIDE NUMBERS ======
+DARK_SLIDES = {1, 8, 19, 33}
+for i, slide in enumerate(prs.slides):
+    num = i + 1
+    if num == 1:
+        continue
+    clr = RGBColor(0x55, 0x66, 0x88) if num in DARK_SLIDES else LIGHT_GRAY
+    tb = box(slide, Inches(12.4), Inches(7.05), Inches(0.7), Inches(0.35))
+    txt(tb.text_frame, str(num), sz=10, color=clr, align=PP_ALIGN.RIGHT)
+
 prs.save(
     "/Users/beratcelik/Desktop/hml presentation/presentation/Phase_Disaggregation_LLM_Inference.pptx"
 )

@@ -4,13 +4,13 @@
 
 ---
 
-## SLIDE: DistServe Section Title (10 sec)
+## SLIDE 19: DistServe Section Title (10 sec)
 
 Thanks Berat. So now I'll go through DistServe, which tackles the same core problem but from a different angle.
 
 ---
 
-## SLIDE: DistServe Motivation (1 min)
+## SLIDE 20: Goodput (1 min)
 
 So Berat showed us why colocation fails. DistServe's approach is to formalize what we're actually optimizing for, and they introduce this concept of goodput.
 
@@ -18,19 +18,11 @@ Goodput is basically: what's the max request rate you can handle while keeping, 
 
 What DistServe does is disaggregate prefill and decoding onto separate GPU instances, and then it runs an optimization to find the best parallelism strategy and resource allocation for each phase independently. And it does this automatically through a placement algorithm, you don't have to tune it by hand.
 
----
-
-## SLIDE: Interference Deep Dive (1 min)
-
-Berat already covered the interference problem at a high level. Let me show the specific numbers from DistServe.
-
-In their experiments with a 13B model, a decode-only batch runs at about 5ms per step. You add one prefill job and it jumps to 15ms. With longer inputs at 1024 tokens, the picture gets much worse.
-
-Now the common response is chunked prefill, from the Sarathi paper. The idea is to break up long prefills into smaller chunks and slot decode tokens in alongside them. But there are real problems with this. If your chunks are too small, you're not saturating the GPU. If they're too big, there's no room for decode work. And there's a hidden quadratic cost: the KV-cache has to be reloaded from HBM for every subsequent chunk, so for N chunks you're loading O(N-squared) data instead of O(N). It helps a little but it doesn't fix the underlying issue.
+Now the common response to the interference problem is chunked prefill, from the Sarathi paper. Break up long prefills into smaller chunks and slot decode tokens alongside them. But there are real problems. Chunk too small, GPU is unsaturated. Too big, no room for decode work. And there's a hidden quadratic cost: the KV-cache has to be reloaded from HBM for every subsequent chunk, O(N-squared) instead of O(N). It helps a little but doesn't fix the underlying issue.
 
 ---
 
-## SLIDE: Tradeoff Analysis (1.5 min)
+## SLIDE 21: Tradeoff Analysis (1.5 min)
 
 What I think is really cool about DistServe is the formal analysis they do after disaggregation. Once you've separated the phases, each one becomes its own optimization problem and you can reason about them independently.
 
@@ -42,21 +34,15 @@ The point is that after disaggregation, you have separate knobs for each phase. 
 
 ---
 
-## SLIDE: DistServe Architecture Figure (10 sec)
+## SLIDE 22: DistServe Architecture Figure (10 sec)
 
 Here's the system diagram. Requests come into the controller at top, get dispatched to prefill instances on the left, and then the KV-cache gets pulled by decode instances on the right. Each instance has its own set of GPUs managed by a parallel runtime.
 
 ---
 
-## SLIDE: System Architecture (40 sec)
+## SLIDE 23: Placement Algorithms (2 min)
 
-Here's how the system is structured. Requests come in to a central controller. It sends each request to whichever prefill instance has the shortest queue. After prefill finishes, the KV-cache gets pulled by the least loaded decode instance, and generation begins.
-
-The whole thing is built on top of vLLM's architecture. About 6,500 lines of Python for the scheduling and orchestration, 8,100 lines of C++ and CUDA for the execution engine. It uses Ray for GPU worker management and has an OpenAI-compatible API.
-
----
-
-## SLIDE: Placement Algorithms (1.5 min)
+The system is built on top of vLLM's architecture. About 6,500 lines of Python for the scheduling and orchestration, 8,100 lines of C++ and CUDA for the execution engine. It uses Ray for GPU worker management and has an OpenAI-compatible API.
 
 This is really the core contribution of DistServe. Given a model, a workload pattern, SLO requirements, and your cluster hardware, the algorithm automatically finds the best setup.
 
@@ -64,23 +50,13 @@ For clusters with fast cross-node networking like InfiniBand, they use Algorithm
 
 If your cross-node bandwidth is limited, Algorithm 2 adds a constraint that prefill and decode have to live on the same physical node so they can use NVLINK for the KV-cache transfer.
 
-A really important piece is their simulator. It models the compute and memory access patterns for each operation, and when they compared it against real system runs, the error was under 2%. So you can explore the design space in simulation instead of running expensive hardware experiments.
+A really important piece is their simulator. It models the compute and memory access patterns for each operation, and when they compared it against real system runs, the error was under 2%.
+
+There are also online optimizations. For pipeline bubbles, they batch requests to hit the GPU saturation point. For bursty traffic, decode instances pull KV-caches when ready instead of getting flooded. And the system can replan: a profiler watches workload patterns, and if things shift, it reruns the placement algorithm in seconds.
 
 ---
 
-## SLIDE: Online Scheduling (40 sec)
-
-Beyond the offline placement, there are some online optimizations worth mentioning.
-
-For pipeline bubbles caused by different prompt lengths, they batch requests to hit the GPU saturation point. Short prompts get grouped together, long ones run alone.
-
-For handling bursty traffic, decode instances pull KV-caches from prefill instances when they're ready, instead of getting flooded with pushes. The prefill machine holds onto the cache in GPU memory as a buffer.
-
-And the system can replan. There's a profiler watching workload patterns, and if things shift significantly, it reruns the placement algorithm. That takes seconds, and reloading model weights takes a few minutes. Much faster than workloads typically change.
-
----
-
-## SLIDE: Results (1.5 min)
+## SLIDE 24: DistServe Results (1.5 min)
 
 They evaluated on 32 A100 GPUs across 4 nodes, testing OPT models from 13B to 175B against vLLM and DeepSpeed-MII.
 
@@ -92,19 +68,19 @@ Summarization on LongBench is the most dramatic result: 4.3x higher rate and 12.
 
 ---
 
-## SLIDE: Chatbot Results Figure (15 sec)
+## SLIDE 25: Chatbot Results Figure (15 sec)
 
 Here's the chatbot evaluation across all three model sizes. Top row: SLO attainment drops as request rate increases. DistServe in blue stays high much longer than vLLM or DeepSpeed-MII. Bottom row: when you tighten the SLOs, DistServe still maintains good attainment while the baselines fall apart.
 
 ---
 
-## SLIDE: Code and Summarization Figure (15 sec)
+## SLIDE 26: Code and Summarization Figure (15 sec)
 
 Same story for code completion and summarization. Code completion shows a big gap because it needs really fast TTFT and disaggregation eliminates the prefill interference. Summarization is even more dramatic because the long inputs cause severe interference when colocated.
 
 ---
 
-## SLIDE: Ablation and Latency (1 min)
+## SLIDE 27: Ablation (1 min)
 
 Two findings I want to highlight.
 
@@ -116,13 +92,13 @@ And check out the actual configs DistServe chose. For OPT-66B, prefill gets tens
 
 ---
 
-## SLIDE: Latency Breakdown Figure (15 sec)
+## SLIDE 28: Latency Breakdown Figure (15 sec)
 
 This figure really drives the point home. The bar chart on the left shows the latency breakdown: transmission is that tiny red sliver, less than 0.1% of total time. On the right, the CDF shows 95% of requests see under 30 milliseconds of transfer delay. The concern about splitting phases across machines adding overhead just doesn't hold up.
 
 ---
 
-## SLIDE: Comparison (1 min)
+## SLIDE 29: Comparison (1 min)
 
 So how do Splitwise and DistServe relate to each other? They were developed independently, came out around the same time, and arrived at the same fundamental conclusion: prefill and decoding should not share hardware.
 
@@ -134,7 +110,7 @@ The ideal system would probably combine both: heterogeneous hardware from Splitw
 
 ---
 
-## SLIDE: Consensus and Future (40 sec)
+## SLIDE 30: Limitations and Open Questions (40 sec)
 
 Both papers agree on the fundamentals. Colocation is the wrong approach for latency-sensitive workloads. Transfer overhead is negligible. Each phase wants different resources. And disaggregation consistently delivers 2x to 7x improvements.
 
@@ -144,11 +120,15 @@ The industry has already moved on this. SGLang, vLLM, and Mooncake all support d
 
 ---
 
-## SLIDE: Summary (30 sec)
+## SLIDE 31: Summary (30 sec)
 
 To wrap it up. Splitwise showed that matching hardware to each phase gets you 1.4x throughput at 20% lower cost, or 2.35x throughput at the same budget. DistServe showed that optimizing parallelism and placement per phase gets you up to 7.4x higher request rates.
 
 The takeaway is simple: prefill and decoding are different workloads. Treating them as one wastes resources. Disaggregation fixes that.
+
+---
+
+## SLIDES 32-33: References & Thank You
 
 Thanks, we're happy to take questions.
 
